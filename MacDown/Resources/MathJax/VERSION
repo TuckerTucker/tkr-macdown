@@ -1,0 +1,51 @@
+MathJax 3.2.2 (vendored subset)
+===============================
+
+Version:   3.2.2
+Source:    https://registry.npmjs.org/mathjax/-/mathjax-3.2.2.tgz
+Integrity: sha512-Bt+SSVU8eBG27zChVewOicYs7Xsdt40qm4+UpHyX7k0/O9NliPc+x77k1/FEsPsjKPZGJvtRZM1vO+geW0OhGw==
+           (registry dist.integrity for mathjax@3.2.2, matched against the
+           downloaded tarball before extraction; dist.shasum
+           c754d7b46a679d7f3fa03543d6b8bf124ddf9f6b)
+License:   Apache-2.0 (see LICENSE, copied from the package)
+Vendored:  2026-10-19
+
+es5/tex-mml-chtml.js
+  sha384-Wuix6BuhrWbjDBs24bXrjf4ZQ5aFeFWBuKkFekO2t8xFU0iNaLQfp2K6/1Nxveei
+  Byte-identical to https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
+  (same SHA-256, checked 2026-10-19). Exported HTML loads that CDN URL with
+  this value as its Subresource Integrity (kMPMathJaxCDNIntegrity in
+  MPRenderer.m); the two must change together.
+
+What is vendored, and why
+-------------------------
+Copied unmodified from the package's es5/ tree, paths preserved:
+
+  es5/tex-mml-chtml.js                 combined component (loader, startup,
+                                       core, TeX + MathML input, CHTML output,
+                                       ui/menu, a11y/assistive-mml)
+  es5/output/chtml/fonts/woff-v2/*     CHTML web fonts (loaded via @font-face
+                                       from [mathjax]/output/chtml/fonts/woff-v2)
+  es5/input/tex/extensions/*           every TeX extension; targets of the
+                                       autoload / require / noerrors loads
+
+MathJax derives [mathjax] from its own script URL, so in the preview these
+are requested from x-macdown-asset:///<bundle>/Contents/Resources/MathJax/es5/.
+
+Deliberately NOT vendored: a11y/{explorer,complexity,semantic-enrich,sre}.js,
+sre/ (speech rule engine, ~3.8 MB, which also fetches JSON and so would need
+a CSP connect-src), output/svg*, ui/{lazy,safe}.js, input/mml/extensions,
+input/asciimath. All of these are requested only from MathJax's contextual
+menu, which init.js disables in the preview (options.enableMenu). Hidden
+assistive MathML for screen readers is part of the combined component and
+stays on.
+
+MacDown's own file: init.js (configuration; not part of MathJax).
+
+Updating
+--------
+Re-download the tarball, verify it against `dist.integrity` from
+https://registry.npmjs.org/mathjax/<version>, copy the same three paths,
+recompute the sha384 of es5/tex-mml-chtml.js, confirm the jsDelivr copy is
+byte-identical, and update kMPMathJaxCDN / kMPMathJaxCDNIntegrity in
+MPRenderer.m and this file.
