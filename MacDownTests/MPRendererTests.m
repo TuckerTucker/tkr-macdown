@@ -539,4 +539,42 @@
                     containsString:@"cdnjs"]);
 }
 
+#pragma mark - Title escaping (TM-12, TB-9)
+
+- (void)testTitleIsHTMLEscaped
+{
+    self.renderer.rendererFlags = 0;
+    [self pinDefaultHTMLTemplate];
+    self.dataSource.htmlTitle = @"</title><script>alert(1)</script> & 'x\"";
+    [self.renderer parseMarkdown:@"body"];
+    [self.renderer render];
+
+    NSString *expected =
+        @"<title>&lt;/title&gt;&lt;script&gt;alert(1)&lt;/script&gt; "
+        @"&amp; &#39;x&quot;</title>";
+    NSString *preview = self.delegate.capturedHTML;
+    XCTAssertTrue([preview containsString:expected], @"%@", preview);
+    XCTAssertFalse([preview containsString:@"<script>alert(1)"], @"%@",
+                   preview);
+
+    NSString *exported = [self.renderer HTMLForExportWithStyles:NO
+                                                   highlighting:NO];
+    XCTAssertTrue([exported containsString:expected], @"%@", exported);
+}
+
+- (void)testFrontMatterStyleTitleIsEscapedToo
+{
+    // MPDocument passes a front-matter title through the same data-source
+    // method; escaping is applied where the tag is built, whatever the
+    // title's origin.
+    self.renderer.rendererFlags = 0;
+    [self pinDefaultHTMLTemplate];
+    self.dataSource.htmlTitle = @"A <b>bold</b> title";
+    [self.renderer parseMarkdown:@"body"];
+    [self.renderer render];
+    XCTAssertTrue([self.delegate.capturedHTML containsString:
+                   @"<title>A &lt;b&gt;bold&lt;/b&gt; title</title>"],
+                  @"%@", self.delegate.capturedHTML);
+}
+
 @end

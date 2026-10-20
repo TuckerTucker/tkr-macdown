@@ -151,6 +151,27 @@ NS_INLINE NSString *MPHTMLFromMarkdown(
     return result;
 }
 
+NS_INLINE NSString *MPHTMLEscapedString(NSString *string)
+{
+    NSMutableString *escaped =
+        [NSMutableString stringWithCapacity:string.length];
+    NSUInteger length = string.length;
+    for (NSUInteger i = 0; i < length; i++)
+    {
+        unichar c = [string characterAtIndex:i];
+        switch (c)
+        {
+            case '&':  [escaped appendString:@"&amp;"];  break;
+            case '<':  [escaped appendString:@"&lt;"];   break;
+            case '>':  [escaped appendString:@"&gt;"];   break;
+            case '"':  [escaped appendString:@"&quot;"]; break;
+            case '\'': [escaped appendString:@"&#39;"];  break;
+            default:   [escaped appendFormat:@"%C", c];  break;
+        }
+    }
+    return escaped;
+}
+
 NS_INLINE NSString *MPGetHTML(
     NSString *title, NSString *body, NSArray *styles, MPAssetOption styleopt,
     NSArray *scripts, MPAssetOption scriptopt)
@@ -186,7 +207,12 @@ NS_INLINE NSString *MPGetHTML(
 
     NSString *titleTag = @"";
     if (title.length)
-        titleTag = [NSString stringWithFormat:@"<title>%@</title>", title];
+    {
+        // The title comes from the file name or front matter, both
+        // document-controlled; it must not be able to break out of <title>.
+        titleTag = [NSString stringWithFormat:@"<title>%@</title>",
+                                              MPHTMLEscapedString(title)];
+    }
 
     NSDictionary *context = @{
         @"title": title ? title : @"",
