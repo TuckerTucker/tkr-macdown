@@ -23,12 +23,6 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -switch /Applications/Xcode_15.4.app
 
-      - name: Set up Ruby (Bundler + cache)
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
-
       - name: Cache CocoaPods
         uses: actions/cache@v4
         with:
@@ -37,8 +31,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pods-
 
+      # The runner image ships CocoaPods; the Gemfile is for local use.
       - name: Install Pods
-        run: bundle exec pod install
+        run: pod --version && pod install
 
       - name: Build peg-markdown-highlight dependency
         run: make -C Dependency/peg-markdown-highlight
