@@ -13,4 +13,11 @@
 
 @property (nonatomic, readonly) MPPreferences *preferences;
 
+// YES if info (an app's Info.plist dictionary) carries a non-empty
+// SUPublicEDKey, i.e. the build can verify Ed25519-signed updates. The
+// updater is only started when this holds.
++ (BOOL)isUpdaterConfiguredWithInfoDictionary:(NSDictionary *)info;
+
+- (IBAction)checkForUpdates:(id)sender;
+
 @end

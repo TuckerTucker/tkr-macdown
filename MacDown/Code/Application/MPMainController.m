@@ -8,6 +8,7 @@
 
 #import "MPMainController.h"
 #import <MASPreferences/MASPreferencesWindowController.h>
+#import <Sparkle/SPUStandardUpdaterController.h>
 #import <Sparkle/SPUUpdater.h>
 #import <Sparkle/SPUUpdaterDelegate.h>
 #import "MPGlobals.h"
@@ -94,6 +95,7 @@ NS_INLINE void treat()
 
 @interface MPMainController () <SPUUpdaterDelegate>
 @property (readonly) NSWindowController *preferencesWindowController;
+@property (readonly) SPUStandardUpdaterController *updaterController;
 @end
 
 
@@ -292,6 +294,20 @@ NS_INLINE void treat()
     MPOpenBundledFile(@"contribute", @"md");
 }
 
+- (IBAction)checkForUpdates:(id)sender
+{
+    [self.updaterController checkForUpdates:sender];
+}
+
++ (BOOL)isUpdaterConfiguredWithInfoDictionary:(NSDictionary *)info
+{
+    id key = info[@"SUPublicEDKey"];
+    if (![key isKindOfClass:[NSString class]])
+        return NO;
+    NSCharacterSet *spaces = [NSCharacterSet whitespaceAndNewlineCharacterSet];
+    return [key stringByTrimmingCharactersInSet:spaces].length > 0;
+}
+
 
 #pragma mark - Override
 
@@ -306,6 +322,20 @@ NS_INLINE void treat()
                    name:MPDidDetectFreshInstallationNotification
                  object:self.preferences];
     [self copyFiles];
+
+    // The updater is started only when the build carries an update signing
+    // key. Without one Sparkle would refuse to start and put up a modal
+    // "contact the developer" alert on every launch; instead updates stay
+    // off (fail closed) and "Check for Updates..." is disabled.
+    _updaterController =
+        [[SPUStandardUpdaterController alloc] initWithStartingUpdater:NO
+                                                      updaterDelegate:self
+                                                   userDriverDelegate:nil];
+    NSDictionary *info = [NSBundle mainBundle].infoDictionary;
+    if ([MPMainController isUpdaterConfiguredWithInfoDictionary:info])
+        [_updaterController startUpdater];
+    else
+        NSLog(@"Updates disabled: this build has no SUPublicEDKey.");
     return self;
 }
 
@@ -327,10 +357,22 @@ NS_INLINE void treat()
 }
 
 
+#pragma mark - NSMenuItemValidation
+
+- (BOOL)validateMenuItem:(NSMenuItem *)item
+{
+    // Not started (no signing key) means canCheckForUpdates is NO, so the
+    // item is shown greyed out rather than failing when chosen.
+    if (item.action == @selector(checkForUpdates:))
+        return self.updaterController.updater.canCheckForUpdates;
+    return YES;
+}
+
+
 #pragma mark - SPUUpdaterDelegate
 
-// The updater is an SPUStandardUpdaterController in MainMenu.xib, with this
-// controller wired as its updaterDelegate. Both feeds are HTTPS; updates are
+// The updater is an SPUStandardUpdaterController owned by this controller,
+// which is its updaterDelegate. Both feeds are HTTPS; updates are
 // accepted only with a valid EdDSA signature (SUPublicEDKey in Info.plist).
 - (NSString *)feedURLStringForUpdater:(SPUUpdater *)updater
 {

@@ -90,6 +90,7 @@
 		60147AD6AB348E26B2566A92 /* MPMathJaxOfflineTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 15757EBEBFE68DE91CF57647 /* MPMathJaxOfflineTests.m */; };
 		770BB49E962A302D0715A6A5 /* libPods-MacDown.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 42F926DD38559C7CEDB6E42F /* libPods-MacDown.a */; };
 		80E1663C0D86597B09023B77 /* MPRendererStubs.m in Sources */ = {isa = PBXBuildFile; fileRef = F7D26DA8A74237E5AC96A8B8 /* MPRendererStubs.m */; };
+		84AF0F5B5A175049A5384328 /* MPUpdaterConfigurationTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 07DA2BD066BBC2D2C7858DFF /* MPUpdaterConfigurationTests.m */; };
 		852D523C1E260A6400BA7162 /* MPTerminalPreferencesViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 852D523A1E260A6400BA7162 /* MPTerminalPreferencesViewController.m */; };
 		85E24E5C1E5019C00056E696 /* MPToolbarController.m in Sources */ = {isa = PBXBuildFile; fileRef = 85E24E5B1E5019C00056E696 /* MPToolbarController.m */; };
 		8CA2432B0F8AD93882B3FD9D /* MPDocumentTests.m in Sources */ = {isa = PBXBuildFile; fileRef = CDF65BF66FFF672499B6F5B7 /* MPDocumentTests.m */; };
@@ -166,6 +167,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		07DA2BD066BBC2D2C7858DFF /* MPUpdaterConfigurationTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPUpdaterConfigurationTests.m; sourceTree = "<group>"; };
 		0A522E6224E5AF7DD0E924E3 /* MPToolbarControllerTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPToolbarControllerTests.m; sourceTree = "<group>"; };
 		0A6382AA9E5C8EE4C37D231D /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
 		0D0EC0DE9FEA22F962083921 /* Pods-MacDownTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MacDownTests.release.xcconfig"; path = "Pods/Target Support Files/Pods-MacDownTests/Pods-MacDownTests.release.xcconfig"; sourceTree = "<group>"; };
@@ -913,6 +915,7 @@
 				15757EBEBFE68DE91CF57647 /* MPMathJaxOfflineTests.m */,
 				8381CDC1CEFBD3C9DD01B8E2 /* MPDocumentPreviewTests.m */,
 				0EF4F4A7810E79B7083F0BFE /* MPPlugInTests.m */,
+				07DA2BD066BBC2D2C7858DFF /* MPUpdaterConfigurationTests.m */,
 			);
 			path = MacDownTests;
 			sourceTree = "<group>";
@@ -1351,6 +1354,7 @@
 				60147AD6AB348E26B2566A92 /* MPMathJaxOfflineTests.m in Sources */,
 				EDACEE4053502AFBBFC66D8A /* MPDocumentPreviewTests.m in Sources */,
 				F9E8DE27C037F68F20F71D0A /* MPPlugInTests.m in Sources */,
+				84AF0F5B5A175049A5384328 /* MPUpdaterConfigurationTests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
