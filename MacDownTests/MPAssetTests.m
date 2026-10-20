@@ -107,9 +107,9 @@
 {
     NSURL *url = [self.bundle URLForResource:@"test" withExtension:@"js"];
     MPEmbeddedScript *script =
-        [MPEmbeddedScript assetWithURL:url andType:kMPMathJaxConfigType];
+        [MPEmbeddedScript assetWithURL:url andType:kMPJavaScriptType];
 
-    NSString *tag = @"<script type=\"text/x-mathjax-config\">\n"
+    NSString *tag = @"<script type=\"text/javascript\">\n"
                     @"console.log('test');\n</script>";
     XCTAssertNil([script htmlForOption:MPAssetNone], @"JS, NULL rendering");
     XCTAssertEqualObjects([script htmlForOption:MPAssetEmbedded], tag,
