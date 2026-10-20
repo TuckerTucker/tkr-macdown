@@ -620,20 +620,26 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
                  didPrintSelector:(SEL)selector contextInfo:(void *)contextInfo
 {
     self.printing = YES;
+
+    // The caller's callback is -document:didPrint:contextInfo:; arguments 2-4
+    // are the document, the result and the caller's context (0 and 1 are self
+    // and _cmd). The document and result are filled in when printing ends.
     NSInvocation *invocation = nil;
-    if (delegate && selector)
+    NSMethodSignature *signature = [delegate methodSignatureForSelector:selector];
+    if (delegate && selector && signature)
     {
-        NSMethodSignature *signature =
-            [NSMethodSignature methodSignatureForSelector:selector];
         invocation = [NSInvocation invocationWithMethodSignature:signature];
         invocation.target = delegate;
-        if (contextInfo)
-            [invocation setArgument:&contextInfo atIndex:2];
+        invocation.selector = selector;
+        [invocation setArgument:&contextInfo atIndex:4];
+        [invocation retainArguments];
     }
+    // The invocation rides through a void * until -document:didPrint:context:
+    // takes ownership back.
     [super printDocumentWithSettings:printSettings
                       showPrintPanel:showPrintPanel delegate:self
                     didPrintSelector:@selector(document:didPrint:context:)
-                         contextInfo:(void *)invocation];
+                         contextInfo:(__bridge_retained void *)invocation];
 }
 
 - (BOOL)validateUserInterfaceItem:(id<NSValidatedUserInterfaceItem>)item
@@ -2029,7 +2035,7 @@ current file somewhere to enable this feature.", \
         ((MPDocument *)doc).printing = NO;
     if (context)
     {
-        NSInvocation *invocation = (__bridge NSInvocation *)context;
+        NSInvocation *invocation = (__bridge_transfer NSInvocation *)context;
         if ([invocation isKindOfClass:[NSInvocation class]])
         {
             [invocation setArgument:&doc atIndex:2];

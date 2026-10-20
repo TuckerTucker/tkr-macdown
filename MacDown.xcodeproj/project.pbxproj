@@ -106,6 +106,8 @@
 		DC82B6355B9272D903C8A2D4 /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A6382AA9E5C8EE4C37D231D /* UniformTypeIdentifiers.framework */; };
 		E716C5E01D6E4F33C2CE2CED /* MPPreviewBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = D923BFF60C64977350582051 /* MPPreviewBridge.m */; };
 		EBFE3157737058F5A63699C8 /* libPods-MacDownTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3C949FDE45493AE77DAD9BF4 /* libPods-MacDownTests.a */; };
+		EDACEE4053502AFBBFC66D8A /* MPDocumentPreviewTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8381CDC1CEFBD3C9DD01B8E2 /* MPDocumentPreviewTests.m */; };
+		FEE1B43903302C4E5AEF3BD3 /* PDFKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9D7738CEA077CC9D57D9C78D /* PDFKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -513,6 +515,7 @@
 		5F4F039A7F1D40E7620CE58B /* MPPreviewSchemeHandler.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPPreviewSchemeHandler.m; sourceTree = "<group>"; };
 		7A8EA75FA95818275755F0B6 /* Pods-macdown-cmd.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-macdown-cmd.release.xcconfig"; path = "Pods/Target Support Files/Pods-macdown-cmd/Pods-macdown-cmd.release.xcconfig"; sourceTree = "<group>"; };
 		7B7A9D4E0164640DB056D73B /* MPPreviewNavigationPolicyTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPPreviewNavigationPolicyTests.m; sourceTree = "<group>"; };
+		8381CDC1CEFBD3C9DD01B8E2 /* MPDocumentPreviewTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPDocumentPreviewTests.m; sourceTree = "<group>"; };
 		852D52391E260A6400BA7162 /* MPTerminalPreferencesViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MPTerminalPreferencesViewController.h; sourceTree = "<group>"; };
 		852D523A1E260A6400BA7162 /* MPTerminalPreferencesViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MPTerminalPreferencesViewController.m; sourceTree = "<group>"; };
 		85E24E5A1E5019C00056E696 /* MPToolbarController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MPToolbarController.h; path = Code/Application/MPToolbarController.h; sourceTree = "<group>"; };
@@ -520,6 +523,7 @@
 		8CDC5EA0050D2F722FB1AADD /* Pods-MacDownTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MacDownTests.debug.xcconfig"; path = "Pods/Target Support Files/Pods-MacDownTests/Pods-MacDownTests.debug.xcconfig"; sourceTree = "<group>"; };
 		905EF1A7196164CA00FC3CE9 /* macdown */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = macdown; sourceTree = BUILT_PRODUCTS_DIR; };
 		905EF1A8196164CA00FC3CE9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		9D7738CEA077CC9D57D9C78D /* PDFKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PDFKit.framework; path = System/Library/Frameworks/PDFKit.framework; sourceTree = SDKROOT; };
 		A98D1BFABF18BD688B6CB8B0 /* MPPreviewSchemeHandler.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = MPPreviewSchemeHandler.h; sourceTree = "<group>"; };
 		B8CF514AAA3F23EB95BD7052 /* MPPreviewNavigationPolicy.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = MPPreviewNavigationPolicy.h; sourceTree = "<group>"; };
 		C46B36A256B4574E1167FB41 /* MPPreviewHostTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPPreviewHostTests.m; sourceTree = "<group>"; };
@@ -579,6 +583,7 @@
 				1FC29F5C1944FC2600D616C7 /* XCTest.framework in Frameworks */,
 				EBFE3157737058F5A63699C8 /* libPods-MacDownTests.a in Frameworks */,
 				A6CE7E3FE80914A375C19F7C /* WebKit.framework in Frameworks */,
+				FEE1B43903302C4E5AEF3BD3 /* PDFKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -829,6 +834,7 @@
 				3C949FDE45493AE77DAD9BF4 /* libPods-MacDownTests.a */,
 				263367245B2D78A42C2F19D7 /* libPods-macdown-cmd.a */,
 				0A6382AA9E5C8EE4C37D231D /* UniformTypeIdentifiers.framework */,
+				9D7738CEA077CC9D57D9C78D /* PDFKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -906,6 +912,7 @@
 				DC2D6942A0561CDB4941F98A /* text-count-fixture.html */,
 				7B7A9D4E0164640DB056D73B /* MPPreviewNavigationPolicyTests.m */,
 				15757EBEBFE68DE91CF57647 /* MPMathJaxOfflineTests.m */,
+				8381CDC1CEFBD3C9DD01B8E2 /* MPDocumentPreviewTests.m */,
 			);
 			path = MacDownTests;
 			sourceTree = "<group>";
@@ -1343,6 +1350,7 @@
 				B3157DD9F12832445A6E232E /* MPPreviewTextCountTests.m in Sources */,
 				3F3058DA3B451CF5FE016B76 /* MPPreviewNavigationPolicyTests.m in Sources */,
 				60147AD6AB348E26B2566A92 /* MPMathJaxOfflineTests.m in Sources */,
+				EDACEE4053502AFBBFC66D8A /* MPDocumentPreviewTests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
