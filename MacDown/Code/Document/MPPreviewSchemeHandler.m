@@ -14,8 +14,8 @@ NSString * const kMPPreviewContentSecurityPolicy =
     @"script-src x-macdown-asset:; "
     @"style-src x-macdown-asset: x-macdown-file: 'unsafe-inline'; "
     @"font-src x-macdown-asset: x-macdown-file: data:; "
-    @"img-src x-macdown-file: x-macdown-asset: https: http: data:; "
-    @"media-src x-macdown-file: https: http:; "
+    @"img-src x-macdown-file: x-macdown-asset: https: data:; "
+    @"media-src x-macdown-file: https:; "
     @"frame-src https:; "
     @"base-uri 'none'; form-action 'none'; object-src 'none'";
 

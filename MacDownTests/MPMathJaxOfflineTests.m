@@ -28,21 +28,11 @@
 #import "MPRenderer.h"
 #import "MPPreferences.h"
 #import "MPRendererStubs.h"
+#import "MPPreviewSchemeHandler.h"
 
 
-static NSString * const kMPTestFileScheme = @"x-macdown-file";
-static NSString * const kMPTestAssetScheme = @"x-macdown-asset";
 static NSString * const kMPTestWorldName = @"MacDownTest";
 static NSString * const kMPTestHandlerName = @"macdown";
-
-// The preview policy from the WKWebView migration contract, verbatim.
-static NSString * const kMPTestPreviewCSP =
-    @"default-src 'none'; script-src x-macdown-asset:; "
-    @"style-src x-macdown-asset: x-macdown-file: 'unsafe-inline'; "
-    @"font-src x-macdown-asset: x-macdown-file: data:; "
-    @"img-src x-macdown-file: x-macdown-asset: https: http: data:; "
-    @"media-src x-macdown-file: https:; frame-src https:; base-uri 'none'; "
-    @"form-action 'none'; object-src 'none'";
 
 static NSTimeInterval const kMPTestTimeout = 30.0;
 
@@ -122,7 +112,7 @@ static NSString *MPTestMIMETypeForExtension(NSString *extension)
     NSURL *url = task.request.URL;
     [self.requestedURLs addObject:url];
 
-    if ([url.scheme isEqualToString:kMPTestFileScheme]
+    if ([url.scheme isEqualToString:kMPPreviewFileScheme]
         && [url isEqual:_pageURL])
     {
         [self respond:task status:200 headers:@{
@@ -132,7 +122,7 @@ static NSString *MPTestMIMETypeForExtension(NSString *extension)
         return;
     }
 
-    if ([url.scheme isEqualToString:kMPTestAssetScheme])
+    if ([url.scheme isEqualToString:kMPPreviewAssetScheme])
     {
         // url.path is percent-decoded. Resolve before the containment check
         // so ../ and symlinks cannot escape the root.
@@ -191,8 +181,8 @@ static NSString *MPTestMIMETypeForExtension(NSString *extension)
 {
     NSURL *url = action.request.URL;
     [self.navigationURLs addObject:url];
-    if ([url.scheme isEqualToString:kMPTestFileScheme]
-        || [url.scheme isEqualToString:kMPTestAssetScheme])
+    if ([url.scheme isEqualToString:kMPPreviewFileScheme]
+        || [url.scheme isEqualToString:kMPPreviewAssetScheme])
     {
         handler(WKNavigationActionPolicyAllow);
         return;
@@ -346,7 +336,7 @@ static NSString *MPTestMIMETypeForExtension(NSString *extension)
     self.schemeHandler =
         [[MPTestPreviewSchemeHandler alloc] initWithPageURL:pageURL
                                                    pageHTML:html
-                                             policyForPage:kMPTestPreviewCSP
+                                             policyForPage:kMPPreviewContentSecurityPolicy
                                                   assetRoot:resources];
     self.navigation = [[MPTestNavigationRecorder alloc] init];
     self.recorder = [[MPTestMessageRecorder alloc] init];
@@ -356,9 +346,9 @@ static NSString *MPTestMIMETypeForExtension(NSString *extension)
         [[WKWebViewConfiguration alloc] init];
     configuration.websiteDataStore = [WKWebsiteDataStore nonPersistentDataStore];
     [configuration setURLSchemeHandler:self.schemeHandler
-                          forURLScheme:kMPTestFileScheme];
+                          forURLScheme:kMPPreviewFileScheme];
     [configuration setURLSchemeHandler:self.schemeHandler
-                          forURLScheme:kMPTestAssetScheme];
+                          forURLScheme:kMPPreviewAssetScheme];
 
     WKUserContentController *content = configuration.userContentController;
     [content addScriptMessageHandler:self.recorder contentWorld:self.world
