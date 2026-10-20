@@ -16,7 +16,7 @@ end
 
 tests = project.targets.find { |t| t.name == 'MacDownTests' }
 test_group = project.files.find { |f| f.path.to_s.end_with?('MPDocumentTests.m') }.parent
-%w[MPPreviewHostTests.m MPDocumentPreviewTests.m].each do |path|
+%w[MPPreviewHostTests.m MPDocumentPreviewTests.m MPPlugInTests.m].each do |path|
   test_ref = test_group.files.find { |f| f.path == path } || test_group.new_file(path)
   tests.add_file_references([test_ref]) unless tests.source_build_phase.files_references.include?(test_ref)
 end

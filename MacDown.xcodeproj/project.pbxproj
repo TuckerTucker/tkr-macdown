@@ -106,6 +106,7 @@
 		E716C5E01D6E4F33C2CE2CED /* MPPreviewBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = D923BFF60C64977350582051 /* MPPreviewBridge.m */; };
 		EBFE3157737058F5A63699C8 /* libPods-MacDownTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3C949FDE45493AE77DAD9BF4 /* libPods-MacDownTests.a */; };
 		EDACEE4053502AFBBFC66D8A /* MPDocumentPreviewTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8381CDC1CEFBD3C9DD01B8E2 /* MPDocumentPreviewTests.m */; };
+		F9E8DE27C037F68F20F71D0A /* MPPlugInTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 0EF4F4A7810E79B7083F0BFE /* MPPlugInTests.m */; };
 		FEE1B43903302C4E5AEF3BD3 /* PDFKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9D7738CEA077CC9D57D9C78D /* PDFKit.framework */; };
 /* End PBXBuildFile section */
 
@@ -168,6 +169,7 @@
 		0A522E6224E5AF7DD0E924E3 /* MPToolbarControllerTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPToolbarControllerTests.m; sourceTree = "<group>"; };
 		0A6382AA9E5C8EE4C37D231D /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
 		0D0EC0DE9FEA22F962083921 /* Pods-MacDownTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MacDownTests.release.xcconfig"; path = "Pods/Target Support Files/Pods-MacDownTests/Pods-MacDownTests.release.xcconfig"; sourceTree = "<group>"; };
+		0EF4F4A7810E79B7083F0BFE /* MPPlugInTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPPlugInTests.m; sourceTree = "<group>"; };
 		15757EBEBFE68DE91CF57647 /* MPMathJaxOfflineTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPMathJaxOfflineTests.m; sourceTree = "<group>"; };
 		172CB398E3B93768DA5D8757 /* Scripts */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; name = Scripts; path = Resources/Scripts; sourceTree = "<group>"; };
 		1A198D1BA59D710201DD3BC8 /* Pods-MacDown.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MacDown.debug.xcconfig"; path = "Pods/Target Support Files/Pods-MacDown/Pods-MacDown.debug.xcconfig"; sourceTree = "<group>"; };
@@ -910,6 +912,7 @@
 				7B7A9D4E0164640DB056D73B /* MPPreviewNavigationPolicyTests.m */,
 				15757EBEBFE68DE91CF57647 /* MPMathJaxOfflineTests.m */,
 				8381CDC1CEFBD3C9DD01B8E2 /* MPDocumentPreviewTests.m */,
+				0EF4F4A7810E79B7083F0BFE /* MPPlugInTests.m */,
 			);
 			path = MacDownTests;
 			sourceTree = "<group>";
@@ -1347,6 +1350,7 @@
 				3F3058DA3B451CF5FE016B76 /* MPPreviewNavigationPolicyTests.m in Sources */,
 				60147AD6AB348E26B2566A92 /* MPMathJaxOfflineTests.m in Sources */,
 				EDACEE4053502AFBBFC66D8A /* MPDocumentPreviewTests.m in Sources */,
+				F9E8DE27C037F68F20F71D0A /* MPPlugInTests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
