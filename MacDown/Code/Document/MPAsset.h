@@ -25,10 +25,6 @@ typedef NS_ENUM(NSInteger, MPAssetOption)
 
 extern NSString * const kMPCSSType;
 extern NSString * const kMPJavaScriptType;
-extern NSString * const kMPMathJaxConfigType;
-
-/** URL scheme under which the preview serves app/user asset files. */
-extern NSString * const kMPPreviewAssetScheme;
 
 
 @interface MPAsset : NSObject

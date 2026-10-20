@@ -9,13 +9,12 @@
 #import "MPAsset.h"
 #import <HBHandlebars/HBHandlebars.h>
 #import "MPUtilities.h"
+#import "MPPreviewSchemeHandler.h"
 
 
 NSString * const kMPPlainType = @"text/plain";
 NSString * const kMPCSSType = @"text/css";
 NSString * const kMPJavaScriptType = @"text/javascript";
-NSString * const kMPMathJaxConfigType = @"text/x-mathjax-config";
-NSString * const kMPPreviewAssetScheme = @"x-macdown-asset";
 
 
 @interface MPAsset ()
@@ -66,11 +65,7 @@ NSString * const kMPPreviewAssetScheme = @"x-macdown-asset";
     NSString *path = url.URLByStandardizingPath.path;
     if (!path.length)
         return nil;
-    NSURLComponents *components = [[NSURLComponents alloc] init];
-    components.scheme = kMPPreviewAssetScheme;
-    components.host = @"";
-    components.path = path;     // NSURLComponents percent-encodes the path.
-    return components.URL;
+    return MPPreviewURLForPath(kMPPreviewAssetScheme, path);
 }
 
 - (NSMutableDictionary *)templateContext
