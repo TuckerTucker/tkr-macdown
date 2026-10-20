@@ -1,0 +1,54 @@
+name: CI
+
+# Replaces the decommissioned Travis CI pipeline (.travis.yml).
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: macos-14
+
+    env:
+      WORKSPACE: MacDown.xcworkspace
+      SCHEME: MacDown
+
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Select Xcode
+        run: sudo xcode-select -switch /Applications/Xcode_15.4.app
+
+      - name: Set up Ruby (Bundler + cache)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      - name: Install Pods
+        run: bundle exec pod install
+
+      - name: Build peg-markdown-highlight dependency
+        run: make -C Dependency/peg-markdown-highlight
+
+      - name: Build & test
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            clean test
