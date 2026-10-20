@@ -8,7 +8,8 @@
 
 #import "MPMainController.h"
 #import <MASPreferences/MASPreferencesWindowController.h>
-#import <Sparkle/SUUpdater.h>
+#import <Sparkle/SPUUpdater.h>
+#import <Sparkle/SPUUpdaterDelegate.h>
 #import "MPGlobals.h"
 #import "MPUtilities.h"
 #import "NSDocumentController+Document.h"
@@ -91,7 +92,7 @@ NS_INLINE void treat()
 }
 
 
-@interface MPMainController ()
+@interface MPMainController () <SPUUpdaterDelegate>
 @property (readonly) NSWindowController *preferencesWindowController;
 @end
 
@@ -326,9 +327,12 @@ NS_INLINE void treat()
 }
 
 
-#pragma mark - SUUpdaterDelegate
+#pragma mark - SPUUpdaterDelegate
 
-- (NSString *)feedURLStringForUpdater:(SUUpdater *)updater
+// The updater is an SPUStandardUpdaterController in MainMenu.xib, with this
+// controller wired as its updaterDelegate. Both feeds are HTTPS; updates are
+// accepted only with a valid EdDSA signature (SUPublicEDKey in Info.plist).
+- (NSString *)feedURLStringForUpdater:(SPUUpdater *)updater
 {
     if (self.preferences.updateIncludesPreReleases)
         return [NSBundle mainBundle].infoDictionary[@"SUBetaFeedURL"];

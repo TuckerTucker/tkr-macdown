@@ -134,8 +134,8 @@
 	<string>https://macdown.uranusjr.com/sparkle/macdown/testing/appcast.xml</string>
 	<key>SUFeedURL</key>
 	<string>https://macdown.uranusjr.com/sparkle/macdown/stable/appcast.xml</string>
-	<key>SUPublicDSAKeyFile</key>
-	<string>dsa_pub.pem</string>
+	<key>SUPublicEDKey</key>
+	<string>$(SPARKLE_PUBLIC_ED_KEY)</string>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
