@@ -97,8 +97,10 @@
            name:@"local.css"];
     [self write:@"secret" to:self.root name:@"secret.txt"];
 
+    NSArray *assetRoots =
+        @[self.assetRoot, [NSBundle mainBundle].resourceURL];
     self.assetHandler = [[MPPreviewSchemeHandler alloc]
-        initWithAllowedRoots:@[self.assetRoot]];
+        initWithAllowedRoots:assetRoots];
     self.fileHandler = [[MPPreviewSchemeHandler alloc]
         initWithAllowedRoots:nil];
 
@@ -385,6 +387,71 @@
     XCTAssertEqual([self fetch:page handler:self.fileHandler
                           data:NULL].statusCode, 404,
                    @"a removed page must not keep being served");
+}
+
+
+#pragma mark - Bundled extensions under the policy
+
+- (NSString *)bundleScriptTag:(NSString *)relativePath
+{
+    NSString *path = [[NSBundle mainBundle].resourcePath
+        stringByAppendingPathComponent:relativePath];
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:path],
+                  @"missing bundled script %@", relativePath);
+    return [NSString stringWithFormat:@"<script src=\"%@\"></script>",
+            MPPreviewURLForPath(kMPPreviewAssetScheme, path).absoluteString];
+}
+
+- (void)testBundledHighlightingAndDiagramsRunWithoutPolicyViolations
+{
+    // Record violations from a world of our own: the event is dispatched on
+    // the document, which every world shares.
+    WKUserScript *recorder = [[WKUserScript alloc]
+        initWithSource:@"document.addEventListener('securitypolicyviolation',"
+                       @" function (e) { var n = document.documentElement;"
+                       @" n.dataset.violations = (n.dataset.violations || '')"
+                       @" + e.violatedDirective + ' ' + e.blockedURI + ';'; });"
+         injectionTime:WKUserScriptInjectionTimeAtDocumentStart
+      forMainFrameOnly:YES
+        inContentWorld:[WKContentWorld worldWithName:@"MPPreviewHostTests"]];
+    [self.webView.configuration.userContentController addUserScript:recorder];
+
+    NSString *body = [@[
+        @"<div id=\"python\"><pre><code class=\"language-python\">"
+        @"def f(x):\n    return x</code></pre></div>",
+        @"<div id=\"mermaid\"><pre><code class=\"language-mermaid\">"
+        @"graph TD; A-->B;</code></pre></div>",
+        @"<div id=\"dot\"><pre><code class=\"language-dot\">"
+        @"digraph { a -> b }</code></pre></div>",
+        [self bundleScriptTag:@"Prism/components/prism-core.min.js"],
+        [self bundleScriptTag:@"Prism/components/prism-python.min.js"],
+        [self bundleScriptTag:@"Extensions/mermaid.min.js"],
+        [self bundleScriptTag:@"Extensions/mermaid.init.js"],
+        [self bundleScriptTag:@"Extensions/viz.js"],
+        [self bundleScriptTag:@"Extensions/viz.init.js"],
+    ] componentsJoinedByString:@"\n"];
+    [self loadPageWithBody:body head:nil];
+
+    // Diagrams render on window load, which can trail navigation finishing.
+    // The fixture wraps code blocks in <div><pre><code> as the renderer does;
+    // the diagram scripts replace that wrapper with their output.
+    XCTestExpectation *settle = [self expectationWithDescription:@"settle"];
+    settle.inverted = YES;
+    [self waitForExpectations:@[settle] timeout:3.0];
+
+    NSDictionary *state = [self evaluateInPage:
+        @"({prism: document.querySelectorAll('#python .token').length,"
+        @"  mermaid: document.querySelectorAll('#mermaid svg').length,"
+        @"  graphviz: document.querySelectorAll('#dot svg').length,"
+        @"  violations: document.documentElement.dataset.violations || ''})"];
+    XCTAssertGreaterThan([state[@"prism"] integerValue], 0,
+                         @"Prism did not highlight the code block");
+    XCTAssertEqual([state[@"mermaid"] integerValue], 1,
+                   @"Mermaid did not render its diagram");
+    XCTAssertEqual([state[@"graphviz"] integerValue], 1,
+                   @"Graphviz did not render its graph");
+    XCTAssertEqualObjects(state[@"violations"], @"",
+                          @"bundled extensions tripped the preview policy");
 }
 
 
