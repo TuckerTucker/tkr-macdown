@@ -2020,8 +2020,8 @@ current file somewhere to enable this feature.", \
         NSInvocation *invocation = (__bridge NSInvocation *)context;
         if ([invocation isKindOfClass:[NSInvocation class]])
         {
-            [invocation setArgument:&doc atIndex:0];
-            [invocation setArgument:&ok atIndex:1];
+            [invocation setArgument:&doc atIndex:2];
+            [invocation setArgument:&ok atIndex:3];
             [invocation invoke];
         }
     }

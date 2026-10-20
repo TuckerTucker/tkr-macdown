@@ -113,12 +113,19 @@ static CGFloat itemWidth = 37;
     NSToolbarItemGroup *selectedGroup = self->toolbarItemIdentifierObjectDictionary[sender.identifier];
     NSToolbarItem *selectedItem = selectedGroup.subitems[selectedIndex];
     
-    // Invoke the toolbar item's action
-    // Must convert to IMP to let the compiler know about the method definition
+    // Invoke the toolbar item's action on the document.
+    // performSelector: dispatches with the full (id self, SEL _cmd) calling
+    // convention, unlike a hand-cast IMP that omits the mandatory _cmd argument
+    // (which is undefined behavior and can crash on arm64).
     MPDocument *document = self.document;
-    IMP imp = [document methodForSelector:selectedItem.action];
-    void (*impFunc)(id) = (void *)imp;
-    impFunc(document);
+    SEL action = selectedItem.action;
+    if (action && [document respondsToSelector:action])
+    {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+        [document performSelector:action withObject:nil];
+#pragma clang diagnostic pop
+    }
 }
 
 
@@ -132,13 +139,15 @@ static CGFloat itemWidth = 37;
     // Mixed identifiers from dictionary and space at below specified indices
     NSMutableArray *defaultItemIdentifiers = [NSMutableArray new];
     
-    // Add space after the specified toolbar item indices
-    int spaceAfterIndices[] = {}; // No space in the default set
+    // No fixed spaces are inserted in the default set, so there is no
+    // spaceAfterIndices array to read. Flexible spaces are inserted after the
+    // indices below; the read is bounds-checked against the element count so it
+    // never walks past the end of the array.
     int flexibleSpaceAfterIndices[] = {2, 3, 5, 7, 11};
+    const size_t flexibleSpaceCount = sizeof(flexibleSpaceAfterIndices) / sizeof(flexibleSpaceAfterIndices[0]);
     int i = 0;
-    int j = 0;
-    int k = 0;
-    
+    size_t k = 0;
+
     for (NSString *itemIdentifier in orderedToolbarItemIdentifiers)
     {
         // exclude some toolbar items from the default toolbar
@@ -149,19 +158,13 @@ static CGFloat itemWidth = 37;
         }else {
             [defaultItemIdentifiers addObject:itemIdentifier];
         }
-        
-        if (i == spaceAfterIndices[j])
-        {
-            [defaultItemIdentifiers addObject:NSToolbarSpaceItemIdentifier];
-            j++;
-        }
-        
-        if (i == flexibleSpaceAfterIndices[k])
+
+        if (k < flexibleSpaceCount && i == flexibleSpaceAfterIndices[k])
         {
             [defaultItemIdentifiers addObject:NSToolbarFlexibleSpaceItemIdentifier];
             k++;
         }
-        
+
         i++;
     }
     
