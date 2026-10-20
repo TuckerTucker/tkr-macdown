@@ -161,8 +161,13 @@ NS_INLINE void treat()
                                             fromQueryItems:queryItems];
     NSLog(@"%@:%@:%@", fileParam, lineParam, columnParam);
 
-    NSURL *target = [NSURL URLWithString:fileParam];
+    // SECURITY: the `url` query parameter is attacker-controllable (it arrives
+    // from a browser via the x-macdown:// scheme). Only open it if it passes
+    // validation — a non-file scheme (http://, javascript:, data:, …) or a
+    // path outside the set of openable local files is rejected here.
+    NSURL *target = [self validatedFileURLFromString:fileParam];
     if (!target) {
+        NSLog(@"Rejected x-macdown open request for unsafe url: %@", fileParam);
         return;
     }
     NSDocumentController *c = [NSDocumentController sharedDocumentController];
@@ -175,6 +180,67 @@ NS_INLINE void treat()
              [wc.window setFrame:frame display:YES];
      }];
 
+}
+
+// Validate the attacker-controllable `url` value carried by an x-macdown://
+// open request and, if it is safe to open, return a canonical file:// URL for
+// it. Returns nil (i.e. "reject") when the value is not a local markdown-style
+// file the user could reasonably open. Exposed (via a test-only category) so
+// the guard can be unit-tested in isolation.
+//
+// Rejected inputs include:
+//   - any non-file scheme (http://, https://, ftp://, javascript:, data:, …)
+//   - paths that do not resolve to an existing regular file
+//   - directories
+//   - sensitive system locations (e.g. /etc/passwd, /System, /usr, /bin)
+//   - "../" traversal / symlink tricks that escape into the above
+- (NSURL *)validatedFileURLFromString:(NSString *)urlString
+{
+    if (!urlString.length)
+        return nil;
+
+    NSURL *target = [NSURL URLWithString:urlString];
+    if (!target)
+        return nil;
+
+    // Only local files may be opened via the URL scheme.
+    if (![target.scheme.lowercaseString isEqualToString:@"file"])
+        return nil;
+
+    NSString *path = target.path;
+    if (!path.length)
+        return nil;
+
+    // Resolve "../" traversal and symlinks so the guards below cannot be
+    // bypassed by, e.g., file:///var/folders/../../etc/passwd.
+    NSString *resolved =
+        [[path stringByStandardizingPath] stringByResolvingSymlinksInPath];
+    if (!resolved.length)
+        return nil;
+
+    // The target must be an existing regular file, not a directory.
+    NSFileManager *manager = [NSFileManager defaultManager];
+    BOOL isDirectory = NO;
+    if (![manager fileExistsAtPath:resolved isDirectory:&isDirectory]
+            || isDirectory)
+        return nil;
+
+    // Reject sensitive system locations even when they technically exist.
+    static NSArray *blockedPrefixes = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        blockedPrefixes = @[@"/etc", @"/private/etc", @"/System", @"/usr",
+                            @"/bin", @"/sbin", @"/dev", @"/cores", @"/Library",
+                            @"/private/var/db", @"/private/var/root"];
+    });
+    for (NSString *prefix in blockedPrefixes)
+    {
+        if ([resolved isEqualToString:prefix]
+                || [resolved hasPrefix:[prefix stringByAppendingString:@"/"]])
+            return nil;
+    }
+
+    return [NSURL fileURLWithPath:resolved];
 }
 
 - (NSString *)valueForKey:(NSString *)key fromQueryItems:(NSArray *)queryItems
