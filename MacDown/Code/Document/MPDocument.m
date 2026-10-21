@@ -1780,6 +1780,11 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
     NSRegularExpression *dashRegex = [NSRegularExpression regularExpressionWithPattern:@"^([-]+)$" options:0 error:nil];
     NSRegularExpression *headerRegex = [NSRegularExpression regularExpressionWithPattern:@"^(#+)\\s" options:0 error:nil];
     NSRegularExpression *imgRegex = [NSRegularExpression regularExpressionWithPattern:@"^!\\[[^\\]]*\\]\\([^)]*\\)$" options:0 error:nil];
+    // Lines inside fenced code blocks render as code, not headers, so they
+    // are no reference nodes: a `# comment` in a shell block must not shift
+    // every later header against the preview's.
+    NSRegularExpression *fenceRegex = [NSRegularExpression regularExpressionWithPattern:@"^ {0,3}(`{3,}|~{3,})(.*)$" options:0 error:nil];
+    NSString *openFence = nil;
     BOOL previousLineHadContent = NO;
     
     CGFloat editorContentHeight = ceilf(NSHeight(self.editor.enclosingScrollView.documentView.bounds));
@@ -1790,10 +1795,30 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
     for (NSInteger lineNumber = 0; lineNumber < [documentLines count]; lineNumber++)
     {
         NSString *line = documentLines[lineNumber];
-        
-        if ((previousLineHadContent && [dashRegex numberOfMatchesInString:line options:0 range:NSMakeRange(0, [line length])]) ||
+
+        NSTextCheckingResult *fence = [fenceRegex firstMatchInString:line options:0 range:NSMakeRange(0, [line length])];
+        BOOL isFenceLine = NO;
+        if (fence)
+        {
+            NSString *marker = [line substringWithRange:[fence rangeAtIndex:1]];
+            NSString *rest = [line substringWithRange:[fence rangeAtIndex:2]];
+            if (!openFence)
+            {
+                openFence = marker;
+                isFenceLine = YES;
+            }
+            else if ([marker characterAtIndex:0] == [openFence characterAtIndex:0]
+                     && marker.length >= openFence.length
+                     && ![rest stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]].length)
+            {
+                openFence = nil;
+                isFenceLine = YES;
+            }
+        }
+
+        if (!openFence && !isFenceLine && ((previousLineHadContent && [dashRegex numberOfMatchesInString:line options:0 range:NSMakeRange(0, [line length])]) ||
             [imgRegex numberOfMatchesInString:line options:0 range:NSMakeRange(0, [line length])] ||
-            [headerRegex numberOfMatchesInString:line options:0 range:NSMakeRange(0, [line length])])
+            [headerRegex numberOfMatchesInString:line options:0 range:NSMakeRange(0, [line length])]))
         {
             // Calculate where this header/image appears vertically in the editor
             NSRange glyphRange = [layoutManager glyphRangeForCharacterRange:NSMakeRange(characterCount, [line length]) actualCharacterRange:nil];

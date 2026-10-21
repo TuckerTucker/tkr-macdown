@@ -20,6 +20,11 @@
 - (NSTextView *)editor;
 - (NSArray<NSNumber *> *)webViewHeaderLocations;
 - (void)refreshPreviewMetrics:(void (^)(MPDocument *document))completion;
+- (IBAction)render:(id)sender;
+- (IBAction)togglePreviewPane:(id)sender;
+- (BOOL)previewVisible;
+- (NSArray<NSNumber *> *)editorHeaderLocations;
+- (void)updateHeaderLocations;
 @end
 
 
@@ -147,15 +152,10 @@
     XCTAssertEqualObjects(self.document.html.length ? @YES : @NO, @YES);
 }
 
-- (void)testExportedPDFContainsTheWholeDocument
+- (PDFDocument *)exportPDF
 {
-    NSMutableString *markdown = [NSMutableString stringWithString:@"# Long\n\n"];
-    for (int i = 0; i < 150; i++)
-        [markdown appendFormat:@"Paragraph %d of a long document.\n\n", i];
-    [markdown appendString:@"The final paragraph.\n"];
-    [self openMarkdown:markdown];
-
-    NSURL *pdfUrl = [self.directory URLByAppendingPathComponent:@"out.pdf"];
+    NSURL *pdfUrl = [self.directory URLByAppendingPathComponent:
+        [NSString stringWithFormat:@"%@.pdf", [NSUUID UUID].UUIDString]];
     NSDictionary *settings = @{
         NSPrintJobDisposition: NSPrintSaveJob,
         NSPrintJobSavingURL: pdfUrl,
@@ -168,14 +168,44 @@
                                  contextInfo:NULL];
     [self waitForExpectations:@[self.printed] timeout:30.0];
     XCTAssertTrue(self.printSucceeded);
+    return [[PDFDocument alloc] initWithURL:pdfUrl];
+}
 
-    PDFDocument *pdf = [[PDFDocument alloc] initWithURL:pdfUrl];
+- (NSString *)longMarkdown
+{
+    NSMutableString *markdown = [NSMutableString stringWithString:@"# Long\n\n"];
+    for (int i = 0; i < 150; i++)
+        [markdown appendFormat:@"Paragraph %d of a long document.\n\n", i];
+    [markdown appendString:@"The final paragraph.\n"];
+    return markdown;
+}
+
+- (void)testExportedPDFContainsTheWholeDocument
+{
+    [self openMarkdown:[self longMarkdown]];
+
+    PDFDocument *pdf = [self exportPDF];
     XCTAssertNotNil(pdf, @"no PDF was written");
     XCTAssertGreaterThan(pdf.pageCount, 1,
                          @"a long document must paginate");
     XCTAssertTrue([pdf.string containsString:@"The final paragraph."],
                   @"the PDF is missing the end of the document");
     XCTAssertTrue([pdf.string containsString:@"Paragraph 0 of"]);
+}
+
+// The print view takes the preview pane's size, which is zero wide while the
+// pane is collapsed; the export must still be complete.
+- (void)testExportedPDFIsCompleteWithThePreviewHidden
+{
+    [self openMarkdown:[self longMarkdown]];
+    [self.document togglePreviewPane:nil];
+    XCTAssertFalse(self.document.previewVisible);
+
+    PDFDocument *pdf = [self exportPDF];
+    XCTAssertNotNil(pdf, @"no PDF was written");
+    XCTAssertGreaterThan(pdf.pageCount, 1);
+    XCTAssertTrue([pdf.string containsString:@"Paragraph 0 of"]);
+    XCTAssertTrue([pdf.string containsString:@"The final paragraph."]);
 }
 
 // A reply from the web process can arrive after the window has closed; the
@@ -199,6 +229,94 @@
     [self waitForExpectations:@[drained] timeout:10.0];
 
     XCTAssertFalse(completed, @"a preview reply ran after the document closed");
+}
+
+// Scroll sync pairs the editor's headers with the preview's by index; a
+// `# comment` inside a code block is code, not a header, in both.
+- (void)testHeadersInsideCodeBlocksAreNotScrollAnchors
+{
+    NSMutableString *markdown = [NSMutableString string];
+    for (int i = 0; i < 40; i++)
+        [markdown appendFormat:@"## Section %d\n\n```sh\n# comment %d\n"
+                               @"echo %d\n```\n\n~~~\n# tilde %d\n~~~\n\n",
+                               i, i, i, i];
+    [self openMarkdown:markdown];
+    [self waitUntil:^BOOL(MPDocumentPreviewTests *test) {
+        return test.document.webViewHeaderLocations.count == 40;
+    }];
+    NSTextView *editor = self.document.editor;
+    [editor.layoutManager ensureLayoutForTextContainer:editor.textContainer];
+    [self.document updateHeaderLocations];
+
+    NSUInteger anchors = self.document.editorHeaderLocations.count;
+    XCTAssertGreaterThan(anchors, 0u);
+    XCTAssertLessThanOrEqual(anchors, 40u,
+        @"code-block comments were taken for headers");
+}
+
+- (NSNumber *)pollPage:(NSString *)script until:(BOOL (^)(NSNumber *))done
+{
+    NSNumber *value = nil;
+    for (int attempt = 0; attempt < 100; attempt++)
+    {
+        value = [self evaluateInPage:script];
+        if ([value isKindOfClass:[NSNumber class]] && done(value))
+            break;
+        [[NSRunLoop currentRunLoop] runUntilDate:
+            [NSDate dateWithTimeIntervalSinceNow:0.1]];
+    }
+    return value;
+}
+
+// With scroll syncing off, a re-render must leave the preview where the
+// reader put it, even when images make the page grow after it has parsed.
+- (void)testRerenderKeepsThePreviewWhereTheReaderLeftIt
+{
+    MPPreferences *preferences = [MPPreferences sharedInstance];
+    BOOL wasSyncing = preferences.editorSyncScrolling;
+    preferences.editorSyncScrolling = NO;
+    [self addTeardownBlock:^{
+        preferences.editorSyncScrolling = wasSyncing;
+    }];
+
+    // Images without declared sizes are 0 tall until they load.
+    NSBitmapImageRep *rep = [[NSBitmapImageRep alloc]
+        initWithBitmapDataPlanes:NULL pixelsWide:20 pixelsHigh:600
+        bitsPerSample:8 samplesPerPixel:3 hasAlpha:NO isPlanar:NO
+        colorSpaceName:NSDeviceRGBColorSpace bytesPerRow:0 bitsPerPixel:0];
+    NSData *png = [rep representationUsingType:NSBitmapImageFileTypePNG
+                                    properties:@{}];
+    [png writeToURL:[self.directory URLByAppendingPathComponent:@"tall.png"]
+         atomically:YES];
+    // Images that grow the page as they load, with enough text that the
+    // page is taller than the window before they do.
+    NSMutableString *markdown = [NSMutableString string];
+    for (int i = 0; i < 12; i++)
+    {
+        [markdown appendFormat:@"![](tall.png)\n\n"];
+        for (int j = 0; j < 6; j++)
+            [markdown appendFormat:@"Paragraph %d.%d of text.\n\n", i, j];
+    }
+    [self openMarkdown:markdown];
+
+    NSString *loaded = @"Array.from(document.images).every("
+                       @"function (i) { return i.complete; }) ? 1 : 0";
+    [self pollPage:loaded until:^BOOL(NSNumber *v) { return v.intValue; }];
+    double limit = [[self evaluateInPage:
+        @"document.documentElement.scrollHeight - window.innerHeight"]
+        doubleValue];
+    NSNumber *top = @(round(limit * 0.8));
+    [self evaluateInPage:[NSString stringWithFormat:
+        @"window.scrollTo(0, %@); window.macdownTestPage = 1; 0", top]];
+
+    [self.document render:nil];
+    [self pollPage:@"window.macdownTestPage ? 0 : 1"
+             until:^BOOL(NSNumber *v) { return v.intValue; }];
+    [self pollPage:loaded until:^BOOL(NSNumber *v) { return v.intValue; }];
+    NSNumber *settled = [self pollPage:@"window.scrollY"
+        until:^BOOL(NSNumber *v) { return v.doubleValue == top.doubleValue; }];
+    XCTAssertEqualObjects(settled, top,
+        @"the re-render moved the preview from where the reader left it");
 }
 
 // #114, #287, #1023: with scroll syncing on, either pane drives the other.

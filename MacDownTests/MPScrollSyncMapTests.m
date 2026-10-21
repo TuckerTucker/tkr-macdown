@@ -145,6 +145,35 @@ static const NSUInteger kHeaderCount = 12;
                                self.editorLimit * ratio, 1.0);
 }
 
+// One pane finding a node the other does not (a `# comment` in a code
+// block the editor took for a header) must not make either direction jump
+// back to the top.
+- (void)testMismatchedAnchorCountsStayMonotonicAndInvertible
+{
+    NSMutableArray *editor = [self.editorAnchors mutableCopy];
+    [editor insertObject:@(1500.0) atIndex:4];
+    MPScrollSyncMap *map = [[MPScrollSyncMap alloc]
+        initWithEditorAnchors:editor
+                       editor:MPScrollSyncPaneMake(kEditorContent,
+                                                   kEditorVisible)
+               previewAnchors:self.previewAnchors
+                      preview:MPScrollSyncPaneMake(kPreviewContent,
+                                                   kPreviewVisible)];
+    CGFloat previous = -1.0;
+    for (CGFloat y = 0.0; y <= self.editorLimit; y += 1.0)
+    {
+        CGFloat mapped = [map previewOffsetForEditorOffset:y];
+        XCTAssertGreaterThanOrEqual(mapped, previous, @"at editor %f", y);
+        previous = mapped;
+    }
+    for (CGFloat y = 0.0; y <= self.previewLimit; y += 7.0)
+    {
+        CGFloat editorY = [map editorOffsetForPreviewOffset:y];
+        XCTAssertEqualWithAccuracy([map previewOffsetForEditorOffset:editorY],
+                                   y, 2.0, @"at preview %f", y);
+    }
+}
+
 - (void)testPaneThatCannotScrollDoesNotProduceNaN
 {
     MPScrollSyncMap *map = [[MPScrollSyncMap alloc]

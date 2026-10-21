@@ -31,8 +31,14 @@ static const NSUInteger kMPScrollSyncMaxIterations = 64;
     self = [super init];
     if (!self)
         return nil;
-    self.editorAnchors = editorAnchors;
-    self.previewAnchors = previewAnchors;
+    // Anchors pair up by index. Should one pane find a node the other does
+    // not, pair only as many as both have: past the last pair the map
+    // interpolates to the end, rather than indexing past the shorter list.
+    NSUInteger paired = MIN(editorAnchors.count, previewAnchors.count);
+    self.editorAnchors =
+        [editorAnchors subarrayWithRange:NSMakeRange(0, paired)];
+    self.previewAnchors =
+        [previewAnchors subarrayWithRange:NSMakeRange(0, paired)];
     self.editorContentHeight = ceil(editor.contentHeight);
     self.editorVisibleHeight = ceil(editor.visibleHeight);
     self.previewContentHeight = ceil(preview.contentHeight);
