@@ -11,6 +11,7 @@
 #import <WebKit/WebKit.h>
 #import <PDFKit/PDFKit.h>
 #import "MPDocument.h"
+#import "MPPreviewBridge.h"
 #import "MPPreferences.h"
 
 // MPDocument keeps its panes private; these are its existing accessors.
@@ -28,6 +29,9 @@
 - (void)syncScrollers;
 - (void)setPreviewContentHeight:(CGFloat)height;
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView;
+- (void)previewBridgeDidReceiveEvent:(MPPreviewBridgeEvent)event
+                               value:(CGFloat)value;
+- (void)previewDidFinishRendering;
 @end
 
 
@@ -333,6 +337,44 @@
         until:^BOOL(NSNumber *v) { return v.doubleValue == top.doubleValue; }];
     XCTAssertEqualObjects(settled, top,
         @"the re-render moved the preview from where the reader left it");
+}
+
+// On a slow machine the restore's own scroll message, clamped because the
+// page was still short, can arrive after the load has finished. Delivered
+// late here on purpose: it must not become the position to settle on.
+- (void)testLateRestoreScrollDoesNotReplaceTheReadersPosition
+{
+    [self setPreference:@"editorSyncScrolling" to:@NO];
+    [self openMarkdown:[self longMarkdown]];
+    double limit = [[self evaluateInPage:
+        @"document.documentElement.scrollHeight - window.innerHeight"]
+        doubleValue];
+    NSNumber *top = @(round(limit * 0.8));
+    [self evaluateInPage:[NSString stringWithFormat:
+        @"window.scrollTo(0, %@); window.macdownTestPage = 1; 0", top]];
+    [self pollPage:@"window.scrollY" until:^BOOL(NSNumber *v) {
+        return v.doubleValue == top.doubleValue; }];
+
+    [self.document render:nil];
+    [self pollPage:@"window.macdownTestPage ? 0 : 1"
+             until:^BOOL(NSNumber *v) { return v.intValue; }];
+    [self waitUntil:^BOOL(MPDocumentPreviewTests *test) {
+        return test.document.isPreviewReady && !test.document.preview.loading;
+    }];
+
+    [self.document previewBridgeDidReceiveEvent:MPPreviewBridgeEventScroll
+                                          value:round(limit * 0.2)];
+    [self.document previewDidFinishRendering];
+    // Script calls run in order: once a second metrics request is answered,
+    // the scroll the first one's reply issued has been sent ahead of the
+    // read below.
+    XCTestExpectation *fenced = [self expectationWithDescription:@"fence"];
+    [self.document refreshPreviewMetrics:^(MPDocument *document) {
+        [fenced fulfill];
+    }];
+    [self waitForExpectations:@[fenced] timeout:10.0];
+    XCTAssertEqualObjects([self evaluateInPage:@"window.scrollY"], top,
+                          @"settled on a late, clamped restore position");
 }
 
 // #114, #287, #1023: with scroll syncing on, either pane drives the other.

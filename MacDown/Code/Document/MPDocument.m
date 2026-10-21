@@ -211,6 +211,8 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 @property BOOL isPreviewReady;
 @property (strong) NSURL *currentBaseUrl;
 @property CGFloat lastPreviewScrollTop;
+// Where the page being loaded is restored to, fixed when the render starts.
+@property CGFloat restoreScrollTop;
 @property (nonatomic, readonly) BOOL needsHtml;
 @property (nonatomic) NSUInteger totalWords;
 @property (nonatomic) NSUInteger totalCharacters;
@@ -949,11 +951,15 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
             [self previewDidFinishRendering];
             break;
         case MPPreviewBridgeEventScroll:
-            // While a page loads, its restore scroll runs before images and
-            // MathJax have laid out, so the page can still be short and the
-            // position comes back clamped. Keep the position the page is
-            // being restored to; the load settles on it when it finishes.
-            if (!self.alreadyRenderingInWeb)
+            // A native scroll is where the app put the page, not where the
+            // reader left it. With sync off the only native scroll is the
+            // restore after a render, which runs before images and MathJax
+            // have laid out and so can come back clamped; its message can
+            // arrive after the load has finished. It must never replace the
+            // reader's position. With sync on it is the synced position,
+            // kept so the next render starts there.
+            if (self.preferences.editorSyncScrolling
+                    && !self.alreadyRenderingInWeb)
                 self.lastPreviewScrollTop = value;
             break;
         case MPPreviewBridgeEventUserScroll:
@@ -1074,8 +1080,9 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
     if (self.currentPreviewUrl && ![self.currentPreviewUrl isEqual:previewUrl])
         [self.previewFileHandler setPageHTML:nil forURL:self.currentPreviewUrl];
     [self.previewFileHandler setPageHTML:html forURL:previewUrl];
+    self.restoreScrollTop = self.lastPreviewScrollTop;
     [self.previewBridge prepareForLoadRestoringScrollTop:
-        self.lastPreviewScrollTop];
+        self.restoreScrollTop];
     [self.preview loadRequest:[NSURLRequest requestWithURL:previewUrl]];
     self.currentBaseUrl = baseUrl;
     self.currentPreviewUrl = previewUrl;
@@ -1535,7 +1542,7 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
         {
             // Content laid out after the page loaded (MathJax, images) can
             // move things; settle on the position the user left it at.
-            [document scrollPreviewTo:document.lastPreviewScrollTop];
+            [document scrollPreviewTo:document.restoreScrollTop];
         }
     }];
 }
