@@ -13,6 +13,11 @@ static NSString * const kMPPreviewBridgeHandlerName = @"macdown";
 // keeps the 12px default the legacy preview had, for styles that set none.
 // Scroll events are already coalesced to one per frame, and an extra
 // requestAnimationFrame throttle would stall in windows that are not visible.
+//
+// Native code scrolls the page only through macdownScrollTo, which remembers
+// where it left the page. The scroll event that lands there is reported as
+// 'scroll'; any other is the reader's and is reported as 'user-scroll', so
+// syncing the editor to the preview never echoes a sync the other way.
 static NSString * const kMPPreviewBridgeScript =
     @"(function () {\n"
     @"  var style = document.createElement('style');\n"
@@ -22,11 +27,21 @@ static NSString * const kMPPreviewBridgeScript =
     @"    window.webkit.messageHandlers.macdown.postMessage(\n"
     @"        {event: event, value: value || 0});\n"
     @"  };\n"
+    @"  var nativeTop = null;\n"
+    @"  window.macdownScrollTo = function (top) {\n"
+    @"    var before = window.scrollY;\n"
+    @"    window.scrollTo(0, top);\n"
+    @"    if (window.scrollY !== before)\n"
+    @"      nativeTop = window.scrollY;\n"
+    @"  };\n"
     @"  document.addEventListener('macdown:mathjax-end', function () {\n"
     @"    post('mathjax-end');\n"
     @"  });\n"
     @"  window.addEventListener('scroll', function () {\n"
-    @"    post('scroll', window.scrollY);\n"
+    @"    var top = window.scrollY;\n"
+    @"    var fromNative = nativeTop !== null && Math.abs(top - nativeTop) < 1;\n"
+    @"    nativeTop = null;\n"
+    @"    post(fromNative ? 'scroll' : 'user-scroll', top);\n"
     @"  }, {passive: true});\n"
     @"})();\n";
 
@@ -74,14 +89,17 @@ static NSString * const kMPPreviewBridgeScript =
 
     if (scrollTop > 0.0)
     {
-        NSString *source = [NSString stringWithFormat:
-            @"window.scrollTo(0, %f);", (double)scrollTop];
         WKUserScript *restore = [[WKUserScript alloc]
-            initWithSource:source
+            initWithSource:[self.class scriptScrollingToTop:scrollTop]
              injectionTime:WKUserScriptInjectionTimeAtDocumentEnd
           forMainFrameOnly:YES inContentWorld:world];
         [controller addUserScript:restore];
     }
+}
+
++ (NSString *)scriptScrollingToTop:(CGFloat)top
+{
+    return [NSString stringWithFormat:@"macdownScrollTo(%f);", (double)top];
 }
 
 - (void)invalidate
@@ -108,6 +126,8 @@ static NSString * const kMPPreviewBridgeScript =
         *event = MPPreviewBridgeEventMathJaxEnd;
     else if ([name isEqualToString:@"scroll"])
         *event = MPPreviewBridgeEventScroll;
+    else if ([name isEqualToString:@"user-scroll"])
+        *event = MPPreviewBridgeEventUserScroll;
     else
         return NO;
     *value = [number doubleValue];

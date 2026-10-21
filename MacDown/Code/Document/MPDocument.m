@@ -31,6 +31,7 @@
 #import "MPPreviewNavigationPolicy.h"
 #import "MPPreviewSchemeHandler.h"
 #import "MPPreviewTextCount.h"
+#import "MPScrollSyncMap.h"
 
 static NSString * const kMPDefaultAutosaveName = @"Untitled";
 
@@ -904,6 +905,11 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
         case MPPreviewBridgeEventScroll:
             self.lastPreviewScrollTop = value;
             break;
+        case MPPreviewBridgeEventUserScroll:
+            self.lastPreviewScrollTop = value;
+            if (self.preferences.editorSyncScrolling)
+                [self syncEditorToPreviewScrollTop:value];
+            break;
     }
 }
 
@@ -1537,8 +1543,7 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 
 - (void)scrollPreviewTo:(CGFloat)y
 {
-    NSString *script =
-        [NSString stringWithFormat:@"window.scrollTo(0, %f);", (double)y];
+    NSString *script = [MPPreviewBridge scriptScrollingToTop:y];
     [self.preview evaluateJavaScript:script inFrame:nil
                       inContentWorld:MPPreviewBridge.contentWorld
                    completionHandler:nil];
@@ -1801,80 +1806,47 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
     _editorHeaderLocations = [locations copy];
 }
 
+- (MPScrollSyncMap *)scrollSyncMap
+{
+    NSScrollView *scrollView = self.editor.enclosingScrollView;
+    MPScrollSyncPane editor = MPScrollSyncPaneMake(
+        NSHeight(scrollView.documentView.bounds),
+        NSHeight(scrollView.contentView.bounds));
+    MPScrollSyncPane preview = MPScrollSyncPaneMake(
+        self.previewContentHeight, self.previewVisibleHeight);
+    return [[MPScrollSyncMap alloc]
+        initWithEditorAnchors:_editorHeaderLocations ?: @[]
+                       editor:editor
+               previewAnchors:_webViewHeaderLocations ?: @[]
+                      preview:preview];
+}
+
 - (void)syncScrollers
 {
-    CGFloat editorContentHeight = ceilf(NSHeight(self.editor.enclosingScrollView.documentView.bounds));
-    CGFloat editorVisibleHeight = ceilf(NSHeight(self.editor.enclosingScrollView.contentView.bounds));
-    CGFloat previewContentHeight = ceilf(self.previewContentHeight);
-    CGFloat previewVisibleHeight = ceilf(self.previewVisibleHeight);
-    NSInteger relativeHeaderIndex = -1; // -1 is start of document, before any other header
-    CGFloat currY = NSMinY(self.editor.enclosingScrollView.contentView.bounds);
-    CGFloat minY = 0;
-    CGFloat maxY = 0;
-    
-    // align the documents at the middle of the screen, except at top/bottom of document
-    CGFloat topTaper = MAX(0, MIN(1.0, currY / editorVisibleHeight));
-    CGFloat bottomTaper = 1.0 - MAX(0, MIN(1.0, (currY - editorContentHeight + 2 * editorVisibleHeight) / editorVisibleHeight));
-    CGFloat adjustmentForScroll = topTaper * bottomTaper * editorVisibleHeight / 2;
+    CGFloat editorY = NSMinY(self.editor.enclosingScrollView.contentView.bounds);
+    [self scrollPreviewTo:[self.scrollSyncMap previewOffsetForEditorOffset:editorY]];
+}
 
-    // We start by splitting our document into lines, and then searching
-    // line by line for headers or images.
-    for (NSNumber *headerYNum in _editorHeaderLocations) {
-        CGFloat headerY = [headerYNum floatValue];
-        headerY -= adjustmentForScroll;
-        
-        if (headerY < currY)
-        {
-            // The header is before our current scroll position. the closest
-            // of these will be our first reference node
-            relativeHeaderIndex += 1;
-            minY = headerY;
-        } else if (maxY == 0 && headerY < editorContentHeight - editorVisibleHeight)
-        {
-            // Skip any headers that are within the last screen of the editor.
-            // we'll interpolate to the end of the document in that case.
-            maxY = headerY;
-        }
-    }
-    
-    // Usually, we'll be scrolling between two reference nodes, but toward the end
-    // of the document we'll ignore nodes and reference the end of the document instead
-    BOOL interpolateToEndOfDocument = NO;
-    
-    if (maxY == 0)
-    {
-        // We only have a reference node before our current position,
-        // but not after, so we'll use the end of the document.
-        maxY = editorContentHeight - editorVisibleHeight + adjustmentForScroll;
-        interpolateToEndOfDocument = YES;
-    }
+- (void)syncEditorToPreviewScrollTop:(CGFloat)previewY
+{
+    // Only sync once the preview has been measured, and only when the reader
+    // can see both panes.
+    if (!self.isPreviewReady || !self.editorVisible || !self.previewVisible)
+        return;
+    if (!_editorHeaderLocations)
+        [self updateHeaderLocations];
 
-    // We are currently at currY offset, between minY and maxY, which represent
-    // headers indexed by relativeHeaderIndex and relativeHeaderIndex+1.
-    currY = MAX(0, currY - minY);
-    maxY -= minY;
-    minY -= minY;
-    CGFloat percentScrolledBetweenHeaders = MAX(0, MIN(1.0, currY / maxY));
-    
-    // Now that we know where the editor position is relative to two reference nodes,
-    // we need to find the positions of those nodes in the HTML preview
-    CGFloat topHeaderY = 0;
-    CGFloat bottomHeaderY = previewContentHeight - previewVisibleHeight;
-    
-    // Find the Y positions in the preview window that we're scrolling between
-    if ([_webViewHeaderLocations count] > relativeHeaderIndex)
-    {
-        topHeaderY = floorf([_webViewHeaderLocations[relativeHeaderIndex] doubleValue]) - adjustmentForScroll;
-    }
-    
-    if (!interpolateToEndOfDocument && [_webViewHeaderLocations count] > relativeHeaderIndex + 1)
-    {
-        bottomHeaderY = ceilf([_webViewHeaderLocations[relativeHeaderIndex + 1] doubleValue]) - adjustmentForScroll;
-    }
-    
-    // Now we scroll percentScrolledBetweenHeaders percent between those two positions in the webview
-    CGFloat previewY = topHeaderY + (bottomHeaderY - topHeaderY) * percentScrolledBetweenHeaders;
-    [self scrollPreviewTo:previewY];
+    NSScrollView *scrollView = self.editor.enclosingScrollView;
+    NSClipView *clipView = scrollView.contentView;
+    CGFloat editorY = [self.scrollSyncMap editorOffsetForPreviewOffset:previewY];
+    if (fabs(editorY - NSMinY(clipView.bounds)) < 0.5)
+        return;
+
+    // Moving the editor must not sync the preview back to it.
+    self.shouldHandleBoundsChange = NO;
+    [clipView scrollToPoint:NSMakePoint(NSMinX(clipView.bounds), editorY)];
+    [scrollView reflectScrolledClipView:clipView];
+    self.shouldHandleBoundsChange = YES;
 }
 
 - (void)setSplitViewDividerLocation:(CGFloat)ratio

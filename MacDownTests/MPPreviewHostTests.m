@@ -65,6 +65,7 @@
 @property (strong) XCTestExpectation *loaded;
 @property (strong) XCTestExpectation *mathJaxEnded;
 @property (strong) NSMutableArray<NSNumber *> *scrollValues;
+@property (strong) NSMutableArray<NSNumber *> *userScrollValues;
 @property (strong) NSMutableArray<NSURL *> *requestedURLs;
 @end
 
@@ -128,6 +129,7 @@
     self.webView.navigationDelegate = self;
     self.window.contentView = self.webView;
     self.scrollValues = [NSMutableArray array];
+    self.userScrollValues = [NSMutableArray array];
     self.requestedURLs = [NSMutableArray array];
 }
 
@@ -237,6 +239,9 @@
             break;
         case MPPreviewBridgeEventScroll:
             [self.scrollValues addObject:@(value)];
+            break;
+        case MPPreviewBridgeEventUserScroll:
+            [self.userScrollValues addObject:@(value)];
             break;
     }
 }
@@ -488,27 +493,67 @@
     [self waitForExpectations:@[self.mathJaxEnded] timeout:10.0];
 }
 
-- (void)testScrollPositionIsReportedAndRestoredOnReload
+- (void)waitForLastValueIn:(NSString *)keyPath toBe:(double)expected
 {
-    NSMutableString *body = [NSMutableString string];
-    for (int i = 0; i < 200; i++)
-        [body appendFormat:@"<p>line %d</p>", i];
-    [self loadPageWithBody:body head:nil];
-
-    [self evaluate:@"window.scrollTo(0, 500);"
-           inWorld:MPPreviewBridge.contentWorld];
     NSPredicate *reported = [NSPredicate predicateWithBlock:
         ^BOOL(MPPreviewHostTests *test, NSDictionary *bindings) {
-            return [test.scrollValues.lastObject doubleValue] == 500.0;
+            NSArray *values = [test valueForKey:keyPath];
+            return [[values lastObject] doubleValue] == expected;
         }];
     [self waitForExpectations:@[[self expectationForPredicate:reported
                                           evaluatedWithObject:self
                                                       handler:nil]]
                       timeout:10.0];
+}
+
+- (NSString *)longPageBody
+{
+    NSMutableString *body = [NSMutableString string];
+    for (int i = 0; i < 200; i++)
+        [body appendFormat:@"<p>line %d</p>", i];
+    return body;
+}
+
+- (void)testScrollPositionIsReportedAndRestoredOnReload
+{
+    NSString *body = [self longPageBody];
+    [self loadPageWithBody:body head:nil];
+
+    [self evaluate:[MPPreviewBridge scriptScrollingToTop:500.0]
+           inWorld:MPPreviewBridge.contentWorld];
+    [self waitForLastValueIn:@"scrollValues" toBe:500.0];
 
     [self.bridge prepareForLoadRestoringScrollTop:500.0];
     [self loadPageWithBody:body head:nil];
     XCTAssertEqualObjects([self evaluateInPage:@"window.scrollY"], @500);
+}
+
+// Scroll sync runs both ways; a scroll native code made must never come back
+// as the reader's, or each pane would keep re-syncing the other.
+- (void)testReaderScrollsAreToldApartFromNativeScrolls
+{
+    NSString *body = [self longPageBody];
+    [self loadPageWithBody:body head:nil];
+
+    [self evaluate:[MPPreviewBridge scriptScrollingToTop:300.0]
+           inWorld:MPPreviewBridge.contentWorld];
+    [self waitForLastValueIn:@"scrollValues" toBe:300.0];
+
+    // The page world stands in for the reader: it is not native code, and it
+    // cannot reach the bridge's own scroll function.
+    [self evaluateInPage:@"window.scrollTo(0, 700); 0"];
+    [self waitForLastValueIn:@"userScrollValues" toBe:700.0];
+
+    XCTAssertEqualObjects(self.scrollValues, @[@300]);
+    XCTAssertEqualObjects(self.userScrollValues, @[@700]);
+    XCTAssertEqualObjects([self evaluateInPage:@"typeof macdownScrollTo"],
+                          @"undefined");
+
+    // A restored position is native too, not something to sync the editor to.
+    [self.bridge prepareForLoadRestoringScrollTop:400.0];
+    [self loadPageWithBody:body head:nil];
+    [self waitForLastValueIn:@"scrollValues" toBe:400.0];
+    XCTAssertEqualObjects(self.userScrollValues, @[@700]);
 }
 
 - (void)testRootFontSizeDefaultsToTheLegacyTwelvePixels
@@ -531,6 +576,7 @@
     NSDictionary *unknown = @{@"event": @"open", @"value": @0};
     NSDictionary *mistyped = @{@"event": @"scroll", @"value": @"1"};
     NSDictionary *valid = @{@"event": @"scroll", @"value": @42};
+    NSDictionary *user = @{@"event": @"user-scroll", @"value": @7};
 
     XCTAssertFalse([MPPreviewBridge parseMessageBody:@"mathjax-end"
                                                event:&event value:&value]);
@@ -542,6 +588,10 @@
                                               event:&event value:&value]);
     XCTAssertEqual(event, MPPreviewBridgeEventScroll);
     XCTAssertEqual(value, 42.0);
+    XCTAssertTrue([MPPreviewBridge parseMessageBody:user
+                                              event:&event value:&value]);
+    XCTAssertEqual(event, MPPreviewBridgeEventUserScroll);
+    XCTAssertEqual(value, 7.0);
 }
 
 @end

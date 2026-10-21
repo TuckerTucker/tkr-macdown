@@ -11,11 +11,14 @@
 #import <WebKit/WebKit.h>
 #import <PDFKit/PDFKit.h>
 #import "MPDocument.h"
+#import "MPPreferences.h"
 
-// MPDocument keeps its preview private; these are its existing accessors.
+// MPDocument keeps its panes private; these are its existing accessors.
 @interface MPDocument (PreviewTesting)
 - (WKWebView *)preview;
 - (BOOL)isPreviewReady;
+- (NSTextView *)editor;
+- (NSArray<NSNumber *> *)webViewHeaderLocations;
 @end
 
 
@@ -93,6 +96,23 @@
     return value;
 }
 
+- (void)waitUntil:(BOOL (^)(MPDocumentPreviewTests *test))condition
+{
+    NSPredicate *predicate = [NSPredicate predicateWithBlock:
+        ^BOOL(MPDocumentPreviewTests *test, NSDictionary *bindings) {
+            return condition(test);
+        }];
+    [self waitForExpectations:@[[self expectationForPredicate:predicate
+                                          evaluatedWithObject:self
+                                                      handler:nil]]
+                      timeout:10.0];
+}
+
+- (NSClipView *)editorClipView
+{
+    return self.document.editor.enclosingScrollView.contentView;
+}
+
 - (void)document:(NSDocument *)document didPrint:(BOOL)ok
      contextInfo:(void *)contextInfo
 {
@@ -155,6 +175,75 @@
     XCTAssertTrue([pdf.string containsString:@"The final paragraph."],
                   @"the PDF is missing the end of the document");
     XCTAssertTrue([pdf.string containsString:@"Paragraph 0 of"]);
+}
+
+// #114, #287, #1023: with scroll syncing on, either pane drives the other.
+- (void)testScrollingEitherPaneSyncsTheOther
+{
+    MPPreferences *preferences = [MPPreferences sharedInstance];
+    BOOL wasSyncing = preferences.editorSyncScrolling;
+    preferences.editorSyncScrolling = YES;
+    [self addTeardownBlock:^{
+        preferences.editorSyncScrolling = wasSyncing;
+    }];
+
+    NSMutableString *markdown = [NSMutableString string];
+    for (int i = 0; i < 60; i++)
+        [markdown appendFormat:@"## Section %d\n\nParagraph %d of a long "
+                               @"document.\n\n", i, i];
+    [self openMarkdown:markdown];
+    [self waitUntil:^BOOL(MPDocumentPreviewTests *test) {
+        return test.document.webViewHeaderLocations.count == 60;
+    }];
+    // On a cold launch the editor lays its text out in the background, and
+    // each time that grows its frame NSTextView keeps the insertion point in
+    // view, which can move the editor. Finish layout before the reader acts.
+    NSTextView *editor = self.document.editor;
+    [editor.layoutManager ensureLayoutForTextContainer:editor.textContainer];
+    [editor.window layoutIfNeeded];
+    CGFloat settledY = NSMinY(self.editorClipView.bounds);
+
+    // The window keeps the size it was last given, so aim at fractions of
+    // whatever the preview can scroll rather than at fixed offsets.
+    double limit = [[self evaluateInPage:
+        @"document.documentElement.scrollHeight - window.innerHeight"]
+        doubleValue];
+    XCTAssertGreaterThan(limit, 0.0, @"the preview must be scrollable");
+    NSNumber *firstTop = @(round(limit * 0.3));
+    NSNumber *secondTop = @(round(limit * 0.6));
+
+    // The reader scrolls the preview: the editor follows, and the preview
+    // stays where the reader left it rather than being synced back.
+    [self evaluateInPage:[NSString stringWithFormat:
+        @"window.scrollTo(0, %@); 0", firstTop]];
+    [self waitUntil:^BOOL(MPDocumentPreviewTests *test) {
+        return NSMinY(test.editorClipView.bounds) > settledY;
+    }];
+    CGFloat editorY = NSMinY(self.editorClipView.bounds);
+    XCTAssertEqualObjects([self evaluateInPage:@"window.scrollY"], firstTop);
+
+    // Scrolling further down the preview moves the editor further down.
+    [self evaluateInPage:[NSString stringWithFormat:
+        @"window.scrollTo(0, %@); 0", secondTop]];
+    [self waitUntil:^BOOL(MPDocumentPreviewTests *test) {
+        return NSMinY(test.editorClipView.bounds) > editorY;
+    }];
+    XCTAssertEqualObjects([self evaluateInPage:@"window.scrollY"], secondTop);
+
+    // The editor drives the preview, as it always has.
+    NSClipView *clipView = self.editorClipView;
+    [clipView scrollToPoint:NSMakePoint(0.0, 0.0)];
+    [self.document.editor.enclosingScrollView reflectScrolledClipView:clipView];
+    NSNumber *previewTop = nil;
+    for (int attempt = 0; attempt < 100; attempt++)
+    {
+        previewTop = [self evaluateInPage:@"window.scrollY"];
+        if (previewTop.doubleValue == 0.0)
+            break;
+        [[NSRunLoop currentRunLoop] runUntilDate:
+            [NSDate dateWithTimeIntervalSinceNow:0.1]];
+    }
+    XCTAssertEqualObjects(previewTop, @0);
 }
 
 @end
