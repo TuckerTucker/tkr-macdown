@@ -211,8 +211,12 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 @property BOOL isPreviewReady;
 @property (strong) NSURL *currentBaseUrl;
 @property CGFloat lastPreviewScrollTop;
-// Where the page being loaded is restored to, fixed when the render starts.
+// Where the page being loaded is settled: the reader's position when the
+// render starts, or the last place they scrolled the old page to before the
+// new one replaced it.
 @property CGFloat restoreScrollTop;
+// Whether the page being loaded has replaced the one on screen.
+@property BOOL previewCommitted;
 @property (nonatomic, readonly) BOOL needsHtml;
 @property (nonatomic) NSUInteger totalWords;
 @property (nonatomic) NSUInteger totalCharacters;
@@ -877,6 +881,12 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 }
 
 - (void)webView:(WKWebView *)webView
+        didCommitNavigation:(WKNavigation *)navigation
+{
+    self.previewCommitted = YES;
+}
+
+- (void)webView:(WKWebView *)webView
         didFinishNavigation:(WKNavigation *)navigation
 {
     // If MathJax is on, rendering completes when the bridge reports MathJax
@@ -963,7 +973,15 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
                 self.lastPreviewScrollTop = value;
             break;
         case MPPreviewBridgeEventUserScroll:
+            // Between commit and finish the page being loaded is laying out
+            // (and may clamp); its scrolls are not the reader's.
+            if (self.alreadyRenderingInWeb && self.previewCommitted)
+                break;
             self.lastPreviewScrollTop = value;
+            // The old page is still on screen: this is where the reader
+            // wants the page being loaded to settle.
+            if (self.alreadyRenderingInWeb)
+                self.restoreScrollTop = value;
             if (self.preferences.editorSyncScrolling)
                 [self syncEditorToPreviewScrollTop:value];
             break;
@@ -1081,6 +1099,7 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
         [self.previewFileHandler setPageHTML:nil forURL:self.currentPreviewUrl];
     [self.previewFileHandler setPageHTML:html forURL:previewUrl];
     self.restoreScrollTop = self.lastPreviewScrollTop;
+    self.previewCommitted = NO;
     [self.previewBridge prepareForLoadRestoringScrollTop:
         self.restoreScrollTop];
     [self.preview loadRequest:[NSURLRequest requestWithURL:previewUrl]];

@@ -32,6 +32,11 @@
 - (void)previewBridgeDidReceiveEvent:(MPPreviewBridgeEvent)event
                                value:(CGFloat)value;
 - (void)previewDidFinishRendering;
+- (id)renderer;
+@end
+
+@interface NSObject (RendererTesting)
+- (void)render;
 @end
 
 
@@ -337,6 +342,38 @@
         until:^BOOL(NSNumber *v) { return v.doubleValue == top.doubleValue; }];
     XCTAssertEqualObjects(settled, top,
         @"the re-render moved the preview from where the reader left it");
+}
+
+// The reader's scroll message can still be in flight when a render starts.
+// While the old page is on screen it is where the new one should settle.
+// Delivered here in the same turn the load is issued, so before it commits.
+- (void)testReaderScrollDuringARenderIsWhereThePageSettles
+{
+    [self setPreference:@"editorSyncScrolling" to:@NO];
+    [self openMarkdown:[self longMarkdown]];
+    double limit = [[self evaluateInPage:
+        @"document.documentElement.scrollHeight - window.innerHeight"]
+        doubleValue];
+    NSNumber *top = @(round(limit * 0.7));
+    [self evaluateInPage:@"window.macdownTestPage = 1; 0"];
+
+    [[self.document renderer] render];
+    [self.document previewBridgeDidReceiveEvent:MPPreviewBridgeEventUserScroll
+                                          value:top.doubleValue];
+    [self pollPage:@"window.macdownTestPage ? 0 : 1"
+             until:^BOOL(NSNumber *v) { return v.intValue; }];
+    [self waitUntil:^BOOL(MPDocumentPreviewTests *test) {
+        return test.document.isPreviewReady && !test.document.preview.loading;
+    }];
+    XCTestExpectation *fenced = [self expectationWithDescription:@"fence"];
+    [self.document refreshPreviewMetrics:^(MPDocument *document) {
+        [fenced fulfill];
+    }];
+    [self waitForExpectations:@[fenced] timeout:10.0];
+    NSNumber *settled = [self pollPage:@"window.scrollY"
+        until:^BOOL(NSNumber *v) { return v.doubleValue == top.doubleValue; }];
+    XCTAssertEqualObjects(settled, top,
+                          @"a scroll made just before the render was lost");
 }
 
 // On a slow machine the restore's own scroll message, clamped because the
