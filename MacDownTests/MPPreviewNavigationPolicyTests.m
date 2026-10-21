@@ -81,6 +81,7 @@ static const WKNavigationType kNonLinkTypes[] = {
     NSURL *url = string ? [NSURL URLWithString:string] : nil;
     return [policy decisionForURL:url navigationType:type
                       isMainFrame:mainFrame
+                       sourceIsMainFrame:YES
                        currentURL:[NSURL URLWithString:kDocURL]];
 }
 
@@ -302,6 +303,7 @@ static const WKNavigationType kNonLinkTypes[] = {
         @"x-macdown-file:///Users/a/./My%20Notes.md#h"];
     MPPreviewNavigationDecision *d = [self.yesPolicy decisionForURL:url
         navigationType:WKNavigationTypeLinkActivated isMainFrame:YES
+        sourceIsMainFrame:YES
         currentURL:current];
     XCTAssertEqual(d.action, MPPreviewNavigationActionAllow, @"%@", d);
 }
@@ -319,18 +321,21 @@ static const WKNavigationType kNonLinkTypes[] = {
     NSURL *url = [NSURL URLWithString:
         @"x-macdown-file:///Users/a/Documents/#intro"];
     MPPreviewNavigationDecision *d = [self.noPolicy decisionForURL:base
-        navigationType:WKNavigationTypeOther isMainFrame:YES currentURL:base];
+        navigationType:WKNavigationTypeOther isMainFrame:YES
+                    sourceIsMainFrame:YES currentURL:base];
     XCTAssertEqual(d.action, MPPreviewNavigationActionAllow, @"%@", d);
 
     d = [self.noPolicy decisionForURL:url
                        navigationType:WKNavigationTypeLinkActivated
-                          isMainFrame:YES currentURL:base];
+                          isMainFrame:YES
+                    sourceIsMainFrame:YES currentURL:base];
     XCTAssertEqual(d.action, MPPreviewNavigationActionAllow, @"%@", d);
 
     url = [NSURL URLWithString:@"x-macdown-file:///Users/a/Documents/b.md"];
     d = [self.noPolicy decisionForURL:url
                        navigationType:WKNavigationTypeLinkActivated
-                          isMainFrame:YES currentURL:base];
+                          isMainFrame:YES
+                    sourceIsMainFrame:YES currentURL:base];
     XCTAssertEqual(d.action, MPPreviewNavigationActionOpen, @"%@", d);
 }
 
@@ -377,7 +382,8 @@ static const WKNavigationType kNonLinkTypes[] = {
 {
     NSURL *url = [NSURL URLWithString:kDocURL];
     MPPreviewNavigationDecision *d = [self.noPolicy decisionForURL:url
-        navigationType:WKNavigationTypeOther isMainFrame:YES currentURL:nil];
+        navigationType:WKNavigationTypeOther isMainFrame:YES
+        sourceIsMainFrame:YES currentURL:nil];
     XCTAssertEqual(d.action, MPPreviewNavigationActionCancel, @"%@", d);
 }
 
@@ -413,6 +419,7 @@ static const WKNavigationType kNonLinkTypes[] = {
     NSURL *url = [NSURL URLWithString:kPoCFile];
     MPPreviewNavigationDecision *d = [self.defaultPolicy decisionForURL:url
         navigationType:WKNavigationTypeLinkActivated isMainFrame:YES
+        sourceIsMainFrame:YES
         currentURL:nil];
     XCTAssertEqual(d.action, MPPreviewNavigationActionReveal, @"%@", d);
 }
@@ -580,6 +587,88 @@ static const WKNavigationType kNonLinkTypes[] = {
     NSURL *md = [self writeFile:@"target.md" contents:@"x"];
     NSURL *mdAlias = [self writeAliasTo:md named:@"target alias"];
     XCTAssertFalse(p(mdAlias));
+}
+
+#pragma mark - Link targets (#1050)
+
+- (NSString *)previewURLStringForName:(NSString *)name
+{
+    NSURL *url = [self.tempDirectory URLByAppendingPathComponent:name];
+    return MPPreviewURLForPath(kMPPreviewFileScheme, url.path).absoluteString;
+}
+
+// `[Install](setup)` with `setup.md` a symlink to a script: the Markdown
+// fallback must be what the predicate checks, or the script launches.
+- (void)testExtensionlessLinkChecksTheMarkdownFileItOpens
+{
+    NSURL *payload = [self writeFile:@"payload.command"
+                            contents:@"#!/bin/sh\necho pwned\n"];
+    [self setExecutable:YES atURL:payload];
+    NSURL *link = [self.tempDirectory URLByAppendingPathComponent:@"setup.md"];
+    BOOL ok = [[NSFileManager defaultManager]
+               createSymbolicLinkAtURL:link withDestinationURL:payload
+                                 error:NULL];
+    XCTAssertTrue(ok);
+
+    MPPreviewNavigationDecision *d =
+        [self click:self.defaultPolicy
+                url:[self previewURLStringForName:@"setup"]];
+    XCTAssertEqual(d.action, MPPreviewNavigationActionReveal, @"%@", d);
+    XCTAssertEqualObjects(d.targetURL.lastPathComponent, @"setup.md");
+}
+
+- (void)testExtensionlessLinkOpensItsMarkdownFile
+{
+    [self writeFile:@"notes.md" contents:@"# Notes"];
+    MPPreviewNavigationDecision *d =
+        [self click:self.noPolicy url:[self previewURLStringForName:@"notes"]];
+    XCTAssertEqual(d.action, MPPreviewNavigationActionOpen, @"%@", d);
+    XCTAssertEqualObjects(d.targetURL.lastPathComponent, @"notes.md");
+    XCTAssertEqualObjects(self.checkedURLs, @[d.targetURL],
+                          @"the predicate must see the URL that is opened");
+}
+
+- (void)testExistingOrMissingTargetsAreNotSubstituted
+{
+    [self writeFile:@"Makefile" contents:@"all:"];
+    [self writeFile:@"Makefile.md" contents:@"# Make"];
+    MPPreviewNavigationDecision *d =
+        [self click:self.noPolicy url:[self previewURLStringForName:@"Makefile"]];
+    XCTAssertEqualObjects(d.targetURL.lastPathComponent, @"Makefile");
+
+    // Nothing to fall back to: the target stays as linked, so the host can
+    // offer to create it.
+    d = [self click:self.noPolicy url:[self previewURLStringForName:@"new"]];
+    XCTAssertEqual(d.action, MPPreviewNavigationActionOpen, @"%@", d);
+    XCTAssertEqualObjects(d.targetURL.lastPathComponent, @"new");
+}
+
+// A remote iframe runs its own scripts outside the preview's CSP, and WebKit
+// reports a scripted click as a link activation.
+- (void)testLinksFromSubframesNeverOpenOrReveal
+{
+    NSArray<NSString *> *targets = @[
+        @"https://example.com/", @"smb://attacker/share", @"vscode://x",
+        @"file:///Applications/Calculator.app",
+        [self previewURLStringForName:@"doc.md"],
+    ];
+    for (NSString *target in targets)
+    {
+        for (NSNumber *targetsMainFrame in @[@YES, @NO])
+        {
+            MPPreviewNavigationDecision *d = [self.noPolicy
+                decisionForURL:[NSURL URLWithString:target]
+                navigationType:WKNavigationTypeLinkActivated
+                   isMainFrame:targetsMainFrame.boolValue
+             sourceIsMainFrame:NO
+                    currentURL:[NSURL URLWithString:kDocURL]];
+            XCTAssertNotEqual(d.action, MPPreviewNavigationActionOpen,
+                              @"%@ %@", target, d);
+            XCTAssertNotEqual(d.action, MPPreviewNavigationActionReveal,
+                              @"%@ %@", target, d);
+        }
+    }
+    XCTAssertEqual(self.checkedURLs.count, (NSUInteger)0);
 }
 
 - (void)testDefaultPredicateFailsClosedForNonFileURL

@@ -26,9 +26,15 @@
 //     activation (Other, form submit/resubmit, back/forward, reload; scripted
 //     `location` changes and <meta http-equiv=refresh> arrive as Other)
 //     -> Cancel. Never Open or Reveal.
-//  5. Main frame link activation to another target:
-//     - file, x-macdown-file -> translated to a file URL; Reveal when the
-//       code-bearing predicate says YES, otherwise Open.
+//  5. Main frame link activation to another target, where the link is in
+//     the document itself (the source frame is the main frame). A link in a
+//     subframe -> Cancel: a remote iframe runs its own scripts, outside the
+//     preview's CSP, and must not be able to make the host open anything.
+//     - file, x-macdown-file -> translated to a file URL. A target with no
+//       extension that does not exist means the Markdown file of that name
+//       when one exists (`[Notes](notes)` -> notes.md), and that file is
+//       the target from then on. Reveal when the code-bearing predicate
+//       says YES for the target, otherwise Open.
 //     - http, https, mailto -> Open.
 //     - x-macdown-asset, javascript, data, blob, about -> Cancel.
 //     - any other scheme (vscode:, x-macdown:, ...) -> Open. Document
@@ -36,7 +42,8 @@
 //       the user clicking a link; handing an app URL to the system is what a
 //       browser does. Note WebKit also reports a scripted `.click()` as a
 //       link activation, which is why file targets are never trusted on the
-//       navigation type alone and are always checked by the predicate.
+//       navigation type alone and are always checked by the predicate. The
+//       predicate always sees the exact URL the host is told to open.
 //
 //  Host integration notes: pass `currentURL` as the URL the host loaded the
 //  document at (its base URL, without fragment). For a navigation action
@@ -106,9 +113,12 @@ MPCodeBearingPredicate MPPreviewNavigationPolicyDefaultCodeBearingPredicate(
 // Uses MPPreviewNavigationPolicyDefaultCodeBearingPredicate().
 - (instancetype)init;
 
+// `isMainFrame` describes the frame being navigated (the target frame);
+// `sourceIsMainFrame` the frame the navigation came from.
 - (MPPreviewNavigationDecision *)decisionForURL:(nullable NSURL *)url
                                  navigationType:(WKNavigationType)type
                                     isMainFrame:(BOOL)isMainFrame
+                              sourceIsMainFrame:(BOOL)sourceIsMainFrame
                                      currentURL:(nullable NSURL *)currentURL;
 
 // x-macdown-file:///p -> file:///p, and file URLs normalised the same way.
@@ -116,6 +126,11 @@ MPCodeBearingPredicate MPPreviewNavigationPolicyDefaultCodeBearingPredicate(
 // another file, and -openOrCreateFileForUrl: works on the path. Returns nil
 // for any other scheme, an empty path, or a host other than localhost.
 + (nullable NSURL *)fileURLForPreviewURL:(NSURL *)url;
+
+// The file a link to `fileURL` opens: `fileURL` itself, or for a target
+// without an extension that does not exist, the existing Markdown file of
+// that name (`notes` -> `notes.md`).
++ (NSURL *)linkTargetForFileURL:(NSURL *)fileURL;
 
 @end
 

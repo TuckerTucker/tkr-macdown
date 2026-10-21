@@ -836,6 +836,7 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
         [self.navigationPolicy decisionForURL:action.request.URL
                                navigationType:action.navigationType
                                   isMainFrame:isMainFrame
+                            sourceIsMainFrame:action.sourceFrame.isMainFrame
                                    currentURL:self.currentPreviewUrl];
     switch (decision.action)
     {
@@ -1929,22 +1930,13 @@ current file somewhere to enable this feature.", \
 
 - (void)openOrCreateFileForUrl:(NSURL *)url
 {
-    // Simply open the file if it is not local, or exists already.
+    // Simply open the file if it is not local, or exists already. Open
+    // exactly the URL given: the navigation policy has already resolved a
+    // link to its Markdown file and checked that it cannot launch code
+    // (#1050), so substituting another file here would skip that check.
     BOOL file = url.isFileURL;
     BOOL reachable = !file || [url checkResourceIsReachableAndReturnError:NULL];
-    
-    // If the file is local but doesn't exist, check if a file with
-    // the .md extension exists.
-    if (file && !reachable && [url.pathExtension isEqualToString:@""])
-    {
-        NSURL *markdownURL = [url URLByAppendingPathExtension:@"md"];
-        if ([markdownURL checkResourceIsReachableAndReturnError:NULL])
-        {
-            reachable = YES;
-            url = markdownURL;
-        }
-    }
-    
+
     if (reachable)
     {
         [[NSWorkspace sharedWorkspace] openURL:url];
@@ -1974,6 +1966,7 @@ current file somewhere to enable this feature.", \
                              url.lastPathComponent];
         alert.informativeText = AUTO_CREATE_FAIL_ALERT_INFORMATIVE;
         [alert runModal];
+        return;
     }
 
     // Try to created the file.

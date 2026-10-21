@@ -245,9 +245,21 @@ NS_INLINE NSString *MPDocumentKey(NSURL *url)
     return [NSURL fileURLWithPath:path isDirectory:url.hasDirectoryPath];
 }
 
++ (NSURL *)linkTargetForFileURL:(NSURL *)fileURL
+{
+    if (fileURL.pathExtension.length
+            || [fileURL checkResourceIsReachableAndReturnError:NULL])
+        return fileURL;
+    NSURL *markdownURL = [fileURL URLByAppendingPathExtension:@"md"];
+    if ([markdownURL checkResourceIsReachableAndReturnError:NULL])
+        return markdownURL;
+    return fileURL;
+}
+
 - (MPPreviewNavigationDecision *)decisionForURL:(NSURL *)url
                                  navigationType:(WKNavigationType)type
                                     isMainFrame:(BOOL)isMainFrame
+                              sourceIsMainFrame:(BOOL)sourceIsMainFrame
                                      currentURL:(NSURL *)currentURL
 {
     MPPreviewNavigationDecision *cancel =
@@ -288,14 +300,15 @@ NS_INLINE NSString *MPDocumentKey(NSURL *url)
         return MPDecision(MPPreviewNavigationActionAllow, nil);
     }
 
-    if (type != WKNavigationTypeLinkActivated)
+    if (type != WKNavigationTypeLinkActivated || !sourceIsMainFrame)
         return cancel;
 
     if (fileURL)
     {
-        if (!self.isCodeBearing || self.isCodeBearing(fileURL))
-            return MPDecision(MPPreviewNavigationActionReveal, fileURL);
-        return MPDecision(MPPreviewNavigationActionOpen, fileURL);
+        NSURL *target = [[self class] linkTargetForFileURL:fileURL];
+        if (!self.isCodeBearing || self.isCodeBearing(target))
+            return MPDecision(MPPreviewNavigationActionReveal, target);
+        return MPDecision(MPPreviewNavigationActionOpen, target);
     }
 
     static NSSet *cancelled = nil;
