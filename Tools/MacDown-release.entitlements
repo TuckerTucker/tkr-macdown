@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	Applied to MacDown.app by Tools/build_for_release.py when it signs with the
+	hardened runtime. Library validation would otherwise refuse to load any
+	plug-in bundle not signed by MacDown's own team, while MPPlugIn's policy
+	admits plug-ins signed by any Developer ID. MPPlugInSignatureVerifier
+	performs that check before a plug-in is loaded.
+	-->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>
