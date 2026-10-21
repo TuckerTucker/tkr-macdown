@@ -1,0 +1,10 @@
+# Release tooling (Tools/build_for_release.py and its tests).
+# Install with: python3 -m pip install -r Tools/requirements.txt
+#
+# Exact pins, including the transitive set, so a release is never built with
+# an unvetted dependency. Vetted 2026-10-21 against OSV (no advisories) and
+# each version published at least two weeks earlier.
+structlog==26.1.0
+cryptography==50.0.2
+cffi==2.1.1
+pycparser==3.0
