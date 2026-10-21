@@ -908,7 +908,12 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
             [self previewDidFinishRendering];
             break;
         case MPPreviewBridgeEventScroll:
-            self.lastPreviewScrollTop = value;
+            // While a page loads, its restore scroll runs before images and
+            // MathJax have laid out, so the page can still be short and the
+            // position comes back clamped. Keep the position the page is
+            // being restored to; the load settles on it when it finishes.
+            if (!self.alreadyRenderingInWeb)
+                self.lastPreviewScrollTop = value;
             break;
         case MPPreviewBridgeEventUserScroll:
             self.lastPreviewScrollTop = value;

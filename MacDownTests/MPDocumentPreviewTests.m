@@ -289,7 +289,10 @@
     [png writeToURL:[self.directory URLByAppendingPathComponent:@"tall.png"]
          atomically:YES];
     // Images that grow the page as they load, with enough text that the
-    // page is taller than the window before they do.
+    // page is taller than the window before they do: where the restore runs
+    // before the images arrive, it is clamped part of the way down. Whether
+    // it does depends on the machine's speed; CI runners are slow enough
+    // (run 39659742447 settled at 1590 instead of 7657 without the fix).
     NSMutableString *markdown = [NSMutableString string];
     for (int i = 0; i < 12; i++)
     {
