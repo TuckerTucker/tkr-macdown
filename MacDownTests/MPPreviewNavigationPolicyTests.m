@@ -530,6 +530,20 @@ static const WKNavigationType kNonLinkTypes[] = {
     XCTAssertTrue(MPPreviewNavigationPolicyDefaultCodeBearingPredicate()(url));
 }
 
+// Files that make another app install or run what is in them are revealed,
+// like code, even though their types do not say so.
+- (void)testDefaultPredicateImporters
+{
+    MPCodeBearingPredicate p =
+        MPPreviewNavigationPolicyDefaultCodeBearingPredicate();
+    for (NSString *name in @[@"do.shortcut", @"flow.wflow", @"vpn.mobileconfig",
+                             @"mdm.configprofile", @"app.jnlp"])
+    {
+        NSURL *url = [self writeFile:name contents:@"<plist/>"];
+        XCTAssertTrue(p(url), @"%@", name);
+    }
+}
+
 - (void)testDefaultPredicateExecutableBit
 {
     MPCodeBearingPredicate p =

@@ -25,6 +25,9 @@
 - (BOOL)previewVisible;
 - (NSArray<NSNumber *> *)editorHeaderLocations;
 - (void)updateHeaderLocations;
+- (void)syncScrollers;
+- (void)setPreviewContentHeight:(CGFloat)height;
+- (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView;
 @end
 
 
@@ -112,6 +115,21 @@
                                           evaluatedWithObject:self
                                                       handler:nil]]
                       timeout:10.0];
+}
+
+// Sets a preference for one test, and puts back exactly what was there:
+// a key that was unset is removed again, not written with its old value.
+- (void)setPreference:(NSString *)key to:(id)value
+{
+    NSUserDefaults *defaults = [MPPreferences sharedInstance].userDefaults;
+    id saved = [defaults objectForKey:key];
+    [defaults setObject:value forKey:key];
+    [self addTeardownBlock:^{
+        if (saved)
+            [defaults setObject:saved forKey:key];
+        else
+            [defaults removeObjectForKey:key];
+    }];
 }
 
 - (NSClipView *)editorClipView
@@ -272,12 +290,7 @@
 // reader put it, even when images make the page grow after it has parsed.
 - (void)testRerenderKeepsThePreviewWhereTheReaderLeftIt
 {
-    MPPreferences *preferences = [MPPreferences sharedInstance];
-    BOOL wasSyncing = preferences.editorSyncScrolling;
-    preferences.editorSyncScrolling = NO;
-    [self addTeardownBlock:^{
-        preferences.editorSyncScrolling = wasSyncing;
-    }];
+    [self setPreference:@"editorSyncScrolling" to:@NO];
 
     // Images without declared sizes are 0 tall until they load.
     NSBitmapImageRep *rep = [[NSBitmapImageRep alloc]
@@ -325,12 +338,7 @@
 // #114, #287, #1023: with scroll syncing on, either pane drives the other.
 - (void)testScrollingEitherPaneSyncsTheOther
 {
-    MPPreferences *preferences = [MPPreferences sharedInstance];
-    BOOL wasSyncing = preferences.editorSyncScrolling;
-    preferences.editorSyncScrolling = YES;
-    [self addTeardownBlock:^{
-        preferences.editorSyncScrolling = wasSyncing;
-    }];
+    [self setPreference:@"editorSyncScrolling" to:@YES];
 
     NSMutableString *markdown = [NSMutableString string];
     for (int i = 0; i < 60; i++)
@@ -389,6 +397,56 @@
             [NSDate dateWithTimeIntervalSinceNow:0.1]];
     }
     XCTAssertEqualObjects(previewTop, @0);
+}
+
+// Before the preview is measured the sync map puts every editor offset at
+// the preview's top; syncing then would throw away where the preview is.
+- (void)testSyncWaitsUntilThePreviewIsMeasured
+{
+    [self setPreference:@"editorSyncScrolling" to:@YES];
+    [self openMarkdown:[self longMarkdown]];
+    [self evaluateInPage:@"window.scrollTo(0, 900); 0"];
+    NSNumber *before = [self evaluateInPage:@"window.scrollY"];
+    XCTAssertGreaterThan(before.doubleValue, 0);
+
+    [self.document setPreviewContentHeight:0];
+    [self.document syncScrollers];
+    // Let a scroll the sync may have sent reach the page.
+    [self evaluateInPage:@"0"];
+    XCTAssertEqualObjects([self evaluateInPage:@"window.scrollY"], before);
+}
+
+// Content that makes WebKit's process quit would do so on every re-render.
+// WebKit cannot be made to crash on demand without private API, so this
+// calls the navigation delegate the way WebKit does when the process dies.
+- (void)testPreviewStopsRetryingAfterRepeatedCrashesAndSaysWhy
+{
+    [self openMarkdown:@"# Crashing\n\nThe document text.\n"];
+    WKWebView *preview = self.document.preview;
+
+    for (int crash = 0; crash < 3; crash++)
+    {
+        [self.document webViewWebContentProcessDidTerminate:preview];
+        [self waitUntil:^BOOL(MPDocumentPreviewTests *test) {
+            return !test.document.preview.loading;
+        }];
+    }
+    [self pollPage:@"document.body.innerText.indexOf('stopped working') >= 0"
+             until:^BOOL(NSNumber *v) { return v.boolValue; }];
+    NSString *text = [self evaluateInPage:@"document.body.innerText"];
+    XCTAssertTrue([text containsString:@"stopped working"], @"%@", text);
+    XCTAssertTrue([text containsString:@"edit the document"], @"%@", text);
+    XCTAssertFalse(self.document.isPreviewReady,
+                   @"the failure page is not something to sync or count");
+
+    // An edit tries again.
+    [self.document.editor insertText:@"More." replacementRange:
+        NSMakeRange(self.document.editor.string.length, 0)];
+    [self waitUntil:^BOOL(MPDocumentPreviewTests *test) {
+        return test.document.isPreviewReady && !test.document.preview.loading;
+    }];
+    text = [self evaluateInPage:@"document.body.innerText"];
+    XCTAssertTrue([text containsString:@"The document text."], @"%@", text);
 }
 
 @end

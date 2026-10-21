@@ -35,6 +35,10 @@
 
 static NSString * const kMPDefaultAutosaveName = @"Untitled";
 
+// How many times in a row the preview is re-rendered after its web process
+// quits. Content that crashes WebKit would crash it on every attempt.
+static const NSUInteger kMPPreviewCrashRetryLimit = 2;
+
 
 NS_INLINE NSString *MPEditorPreferenceKeyWithValueKey(NSString *key)
 {
@@ -220,6 +224,13 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 @property (nonatomic) BOOL closed;
 @property (nonatomic) BOOL alreadyRenderingInWeb;
 @property (nonatomic) BOOL renderToWebPending;
+// Web process terminations since the text last changed, and whether the
+// preview is showing why it gave up instead of the document.
+@property (nonatomic) NSUInteger previewCrashCount;
+@property (nonatomic) BOOL previewFailed;
+// Scroll syncing aligns on the preview's measurements, which only exist
+// once the page has been laid out and measured.
+@property (nonatomic, readonly) BOOL previewMeasured;
 @property (strong) NSArray<NSNumber *> *webViewHeaderLocations;
 @property (strong) NSArray<NSNumber *> *editorHeaderLocations;
 @property (nonatomic) BOOL inLiveScroll;
@@ -890,10 +901,40 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView
 {
-    // The page's process is gone; render into a fresh one.
+    // The page's process is gone; render into a fresh one, a bounded number
+    // of times. Past that, say so in the preview and wait for an edit.
     self.alreadyRenderingInWeb = NO;
     self.renderToWebPending = NO;
-    [self.renderer parseAndRenderNow];
+    self.previewCrashCount += 1;
+    if (self.previewCrashCount <= kMPPreviewCrashRetryLimit)
+        [self.renderer parseAndRenderNow];
+    else
+        [self showPreviewFailure];
+}
+
+- (void)showPreviewFailure
+{
+    self.previewFailed = YES;
+    NSString *title = NSLocalizedString(@"The preview stopped working",
+                                        @"Preview failure page: title");
+    NSString *detail = NSLocalizedString(
+        @"The process that draws the preview quit each time it showed this "
+        @"document, so MacDown stopped trying. Your text is safe. The preview "
+        @"tries again as soon as you edit the document.",
+        @"Preview failure page: what happened and what to do");
+    NSString *html = [NSString stringWithFormat:
+        @"<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>"
+        @"body { font: 13px -apple-system, sans-serif; margin: 2em; "
+        @"color: #555; } h1 { font-size: 1.3em; color: #333; }"
+        @"@media (prefers-color-scheme: dark) { body { color: #bbb; "
+        @"background: #1e1e1e; } h1 { color: #ddd; } }"
+        @"</style></head><body role=\"alert\"><h1>%@</h1><p>%@</p>"
+        @"</body></html>", title, detail];
+    NSURL *url = self.currentPreviewUrl
+        ?: [self previewUrlForBaseUrl:self.preferences.htmlDefaultDirectoryUrl];
+    [self.previewFileHandler setPageHTML:html forURL:url];
+    self.currentPreviewUrl = url;
+    [self.preview loadRequest:[NSURLRequest requestWithURL:url]];
 }
 
 
@@ -1010,6 +1051,7 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
         return;
     
     self.alreadyRenderingInWeb = YES;
+    self.previewFailed = NO;
 
     // Delayed copying for -copyHtml.
     if (self.copying)
@@ -1044,6 +1086,8 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 
 - (void)editorTextDidChange:(NSNotification *)notification
 {
+    // The edit may have removed whatever made the preview's process quit.
+    self.previewCrashCount = 0;
     if (self.needsHtml)
         [self.renderer parseAndRenderLater];
 }
@@ -1417,6 +1461,7 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 
 - (IBAction)render:(id)sender
 {
+    self.previewCrashCount = 0;
     [self.renderer parseAndRenderLater];
 }
 
@@ -1477,6 +1522,8 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 - (void)previewDidFinishRendering
 {
     [self scaleWebview];
+    if (self.previewFailed)
+        return;
     [self refreshPreviewMetrics:^(MPDocument *document) {
         [document redrawDivider];
         if (document.preferences.editorSyncScrolling)
@@ -1495,10 +1542,11 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 
 - (void)previewDidFinishLoading
 {
-    self.isPreviewReady = YES;
+    // The failure page is not the document: nothing to count or sync on.
+    self.isPreviewReady = !self.previewFailed;
 
     // Update word count
-    if (self.preferences.editorShowWordCount)
+    if (self.preferences.editorShowWordCount && !self.previewFailed)
         [self updateWordCount];
 
     self.alreadyRenderingInWeb = NO;
@@ -1858,8 +1906,17 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
                       preview:preview];
 }
 
+- (BOOL)previewMeasured
+{
+    return self.previewContentHeight > 0 && self.previewVisibleHeight > 0;
+}
+
 - (void)syncScrollers
 {
+    // Unmeasured, the map would put every editor offset at the preview's
+    // top.
+    if (!self.previewMeasured)
+        return;
     CGFloat editorY = NSMinY(self.editor.enclosingScrollView.contentView.bounds);
     [self scrollPreviewTo:[self.scrollSyncMap previewOffsetForEditorOffset:editorY]];
 }
@@ -1868,7 +1925,8 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 {
     // Only sync once the preview has been measured, and only when the reader
     // can see both panes.
-    if (!self.isPreviewReady || !self.editorVisible || !self.previewVisible)
+    if (!self.isPreviewReady || !self.previewMeasured || !self.editorVisible
+            || !self.previewVisible)
         return;
     if (!_editorHeaderLocations)
         [self updateHeaderLocations];

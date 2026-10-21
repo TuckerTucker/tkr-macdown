@@ -17,7 +17,10 @@ static NSString * const kMPPreviewBridgeHandlerName = @"macdown";
 // Native code scrolls the page only through macdownScrollTo, which remembers
 // where it left the page. The scroll event that lands there is reported as
 // 'scroll'; any other is the reader's and is reported as 'user-scroll', so
-// syncing the editor to the preview never echoes a sync the other way.
+// syncing the editor to the preview never echoes a sync the other way. The
+// jump is instant even when a document's CSS asks for smooth scrolling;
+// animated, it would land after the check and every frame would read as the
+// reader's.
 static NSString * const kMPPreviewBridgeScript =
     @"(function () {\n"
     @"  var style = document.createElement('style');\n"
@@ -30,7 +33,7 @@ static NSString * const kMPPreviewBridgeScript =
     @"  var nativeTop = null;\n"
     @"  window.macdownScrollTo = function (top) {\n"
     @"    var before = window.scrollY;\n"
-    @"    window.scrollTo(0, top);\n"
+    @"    window.scrollTo({top: top, left: 0, behavior: 'instant'});\n"
     @"    if (window.scrollY !== before)\n"
     @"      nativeTop = window.scrollY;\n"
     @"  };\n"

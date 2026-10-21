@@ -61,6 +61,11 @@ NS_INLINE NSSet<NSString *> *MPCodeBearingExtensions(void)
             @"action", @"scpt", @"scptd", @"applescript", @"pkg", @"mpkg",
             @"command", @"tool", @"terminal", @"sh", @"jar", @"webloc",
             @"inetloc", @"fileloc",
+            // Importers: each hands its contents to an app that installs or
+            // runs them (Shortcuts, Automator, profile installation, Java Web
+            // Start). Their types are not declared as code, so list them.
+            @"shortcut", @"wflow", @"mobileconfig", @"configprofile",
+            @"jnlp",
         ]];
     });
     return extensions;

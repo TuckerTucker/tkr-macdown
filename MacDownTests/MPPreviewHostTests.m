@@ -195,13 +195,35 @@
     return [self evaluate:script inWorld:WKContentWorld.pageWorld];
 }
 
+// Waits until condition is true in the page, or timeout passes; the
+// assertions that follow say what was missing.
+- (void)pollPage:(NSString *)condition timeout:(NSTimeInterval)timeout
+{
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
+    while ([deadline timeIntervalSinceNow] > 0
+            && ![[self evaluateInPage:condition] isEqual:@YES])
+    {
+        [[NSRunLoop currentRunLoop] runUntilDate:
+            [NSDate dateWithTimeIntervalSinceNow:0.05]];
+    }
+}
+
 - (NSHTTPURLResponse *)fetch:(NSURL *)url
                      handler:(MPPreviewSchemeHandler *)handler
                         data:(NSData **)data
 {
-    MPRecordingSchemeTask *task = [[MPRecordingSchemeTask alloc]
-        initWithRequest:[NSURLRequest requestWithURL:url]];
-    task.finished = [self expectationWithDescription:url.absoluteString];
+    return [self fetchRequest:[NSURLRequest requestWithURL:url]
+                      handler:handler data:data];
+}
+
+- (NSHTTPURLResponse *)fetchRequest:(NSURLRequest *)request
+                            handler:(MPPreviewSchemeHandler *)handler
+                               data:(NSData **)data
+{
+    MPRecordingSchemeTask *task =
+        [[MPRecordingSchemeTask alloc] initWithRequest:request];
+    task.finished = [self expectationWithDescription:
+                     request.URL.absoluteString];
     [handler webView:self.webView startURLSchemeTask:task];
     [self waitForExpectations:@[task.finished] timeout:10.0];
     if (data)
@@ -373,6 +395,87 @@
                           data:NULL].statusCode, 404);
 }
 
+- (NSURL *)documentFileNamed:(NSString *)name data:(NSData *)data
+{
+    NSURL *file = [self.documentRoot URLByAppendingPathComponent:name];
+    XCTAssertTrue([data writeToURL:file atomically:YES]);
+    return MPPreviewURLForPath(kMPPreviewFileScheme, file.path);
+}
+
+- (NSHTTPURLResponse *)fetch:(NSURL *)url range:(NSString *)range
+                        data:(NSData **)data
+{
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    [request setValue:range forHTTPHeaderField:@"Range"];
+    return [self fetchRequest:request handler:self.fileHandler data:data];
+}
+
+// WebKit's media loader reads local audio and video in byte ranges; a file
+// only ever served whole cannot be played or seeked.
+- (void)testByteRangesAreServed
+{
+    NSMutableData *bytes = [NSMutableData dataWithLength:1000];
+    for (NSUInteger i = 0; i < bytes.length; i++)
+        ((uint8_t *)bytes.mutableBytes)[i] = (uint8_t)(i % 251);
+    NSURL *url = [self documentFileNamed:@"clip.mp4" data:bytes];
+
+    NSData *data = nil;
+    NSHTTPURLResponse *response = [self fetch:url handler:self.fileHandler data:&data];
+    XCTAssertEqual(response.statusCode, 200);
+    XCTAssertEqualObjects(response.allHeaderFields[@"Accept-Ranges"],
+                          @"bytes");
+    XCTAssertEqualObjects(data, bytes);
+
+    NSDictionary<NSString *, NSArray *> *cases = @{
+        @"bytes=100-199": @[@100, @100, @"bytes 100-199/1000"],
+        @"bytes=900-": @[@900, @100, @"bytes 900-999/1000"],
+        @"bytes=-50": @[@950, @50, @"bytes 950-999/1000"],
+        @"bytes=990-5000": @[@990, @10, @"bytes 990-999/1000"],
+    };
+    for (NSString *range in cases)
+    {
+        NSArray *expected = cases[range];
+        response = [self fetch:url range:range data:&data];
+        XCTAssertEqual(response.statusCode, 206, @"%@", range);
+        XCTAssertEqualObjects(response.allHeaderFields[@"Content-Range"],
+                              expected[2], @"%@", range);
+        NSRange slice = NSMakeRange([expected[0] unsignedIntegerValue],
+                                    [expected[1] unsignedIntegerValue]);
+        XCTAssertEqualObjects(data, [bytes subdataWithRange:slice],
+                              @"%@", range);
+        XCTAssertEqualObjects(response.allHeaderFields[@"Content-Length"],
+                              [expected[1] stringValue], @"%@", range);
+    }
+
+    response = [self fetch:url range:@"bytes=1000-" data:&data];
+    XCTAssertEqual(response.statusCode, 416);
+    XCTAssertEqualObjects(response.allHeaderFields[@"Content-Range"],
+                          @"bytes */1000");
+
+    // Several ranges at once are allowed to be answered whole.
+    response = [self fetch:url range:@"bytes=0-1,5-6" data:&data];
+    XCTAssertEqual(response.statusCode, 200);
+    XCTAssertEqualObjects(data, bytes);
+}
+
+// A declared charset overrides a stylesheet's BOM and @charset rule.
+- (void)testOnlyUTF8TextIsDeclaredUTF8
+{
+    NSURL *utf8 = [self documentFileNamed:@"utf8.css"
+        data:[@"p::after { content: \"é\"; }"
+              dataUsingEncoding:NSUTF8StringEncoding]];
+    NSURL *latin1 = [self documentFileNamed:@"latin1.css"
+        data:[@"@charset \"iso-8859-1\"; p::after { content: \"é\"; }"
+              dataUsingEncoding:NSISOLatin1StringEncoding]];
+
+    XCTAssertEqualObjects([self fetch:utf8 handler:self.fileHandler data:NULL]
+                          .allHeaderFields[@"Content-Type"],
+                          @"text/css; charset=utf-8");
+    XCTAssertEqualObjects([self fetch:latin1 handler:self.fileHandler
+                                 data:NULL].allHeaderFields[@"Content-Type"],
+                          @"text/css");
+}
+
 - (void)testVirtualPageCarriesThePolicyAndCanBeRemoved
 {
     NSURL *page = MPPreviewURLForPath(kMPPreviewFileScheme,
@@ -440,9 +543,8 @@
     // Diagrams render on window load, which can trail navigation finishing.
     // The fixture wraps code blocks in <div><pre><code> as the renderer does;
     // the diagram scripts replace that wrapper with their output.
-    XCTestExpectation *settle = [self expectationWithDescription:@"settle"];
-    settle.inverted = YES;
-    [self waitForExpectations:@[settle] timeout:3.0];
+    [self pollPage:@"document.querySelectorAll('#mermaid svg, #dot svg')"
+                   @".length >= 2" timeout:30.0];
 
     NSDictionary *state = [self evaluateInPage:
         @"({prism: document.querySelectorAll('#python .token').length,"
@@ -554,6 +656,21 @@
     [self loadPageWithBody:body head:nil];
     [self waitForLastValueIn:@"scrollValues" toBe:400.0];
     XCTAssertEqualObjects(self.userScrollValues, @[@700]);
+}
+
+// Document CSS may ask for smooth scrolling. Animated, a native scroll would
+// land after the bridge checked it, and every frame would be reported as
+// the reader's: the editor would follow, and sync the preview back.
+- (void)testSmoothScrollingCSSDoesNotTurnNativeScrollsIntoTheReaders
+{
+    [self loadPageWithBody:[self longPageBody]
+                      head:@"<style>html { scroll-behavior: smooth; }</style>"];
+
+    [self evaluate:[MPPreviewBridge scriptScrollingToTop:600.0]
+           inWorld:MPPreviewBridge.contentWorld];
+    [self waitForLastValueIn:@"scrollValues" toBe:600.0];
+    XCTAssertEqualObjects([self evaluateInPage:@"window.scrollY"], @600);
+    XCTAssertEqualObjects(self.userScrollValues, @[]);
 }
 
 - (void)testRootFontSizeDefaultsToTheLegacyTwelvePixels
