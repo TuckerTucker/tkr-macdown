@@ -5,16 +5,26 @@
 //  Covers the Sparkle 2 updater gate (DEP-5 / TM-3 / TB-4): updates are
 //  verified with Ed25519 only, and a build without SUPublicEDKey must keep
 //  the updater off (fail closed) without Sparkle's modal start-up alert,
-//  leaving "Check for Updates..." disabled.
+//  leaving "Check for Updates..." disabled and saying why where updates are
+//  offered. Controllers are built from an injected Info dictionary, so the
+//  tests hold whether or not a maintainer has set the signing key.
 //
 
 #import <Cocoa/Cocoa.h>
 #import <XCTest/XCTest.h>
+@class SPUUpdater;
+#import "MPGeneralPreferencesViewController.h"
 #import "MPMainController.h"
+#import "MPPreferences.h"
 
 
 @interface MPMainController (UpdaterTesting)
 - (BOOL)validateMenuItem:(NSMenuItem *)item;
+- (NSSet<NSString *> *)allowedChannelsForUpdater:(SPUUpdater *)updater;
+@end
+
+@interface MPGeneralPreferencesViewController (UpdaterTesting)
+@property (weak) NSButton *preReleasesToggle;
 @end
 
 
@@ -62,18 +72,49 @@
     XCTAssertNil(info[@"SUPublicDSAKeyFile"],
                  @"A DSA key would let Sparkle fall back to legacy DSA");
     XCTAssertNil(info[@"SUPublicDSAKey"]);
-    XCTAssertTrue([info[@"SUFeedURL"] hasPrefix:@"https://"]);
-    XCTAssertTrue([info[@"SUBetaFeedURL"] hasPrefix:@"https://"]);
 }
 
-- (void)testUnconfiguredBuildDisablesCheckForUpdates
+// Upstream's feed lists builds signed with upstream's key: once this fork
+// sets its own key, every one of them would fail verification.
+- (void)testFeedIsTheForksOwnOverHTTPS
 {
     NSDictionary *info = [NSBundle mainBundle].infoDictionary;
-    XCTAssertFalse([MPMainController
-                    isUpdaterConfiguredWithInfoDictionary:info],
-                   @"The in-tree build has no signing key");
+    NSURL *feed = [NSURL URLWithString:info[@"SUFeedURL"]];
+    XCTAssertEqualObjects(feed.scheme, @"https");
+    XCTAssertEqualObjects(feed.host, @"raw.githubusercontent.com");
+    XCTAssertTrue([feed.path hasPrefix:@"/TuckerTucker/tkr-macdown/"],
+                  @"%@", feed);
+    XCTAssertNil(info[@"SUBetaFeedURL"],
+                 @"pre-releases are a channel of the one feed");
+}
 
-    MPMainController *controller = [[MPMainController alloc] init];
+- (void)testPreReleasesAreTheBetaChannel
+{
+    MPPreferences *preferences = [MPPreferences sharedInstance];
+    NSUserDefaults *defaults = preferences.userDefaults;
+    NSString *key = @"updateIncludesPreReleases";
+    id saved = [defaults objectForKey:key];
+    [self addTeardownBlock:^{
+        if (saved)
+            [defaults setObject:saved forKey:key];
+        else
+            [defaults removeObjectForKey:key];
+    }];
+    MPMainController *controller =
+        [[MPMainController alloc] initWithInfoDictionary:@{}];
+
+    preferences.updateIncludesPreReleases = YES;
+    XCTAssertEqualObjects([controller allowedChannelsForUpdater:nil],
+                          [NSSet setWithObject:MPUpdaterBetaChannel]);
+    preferences.updateIncludesPreReleases = NO;
+    XCTAssertEqualObjects([controller allowedChannelsForUpdater:nil],
+                          [NSSet set], @"stable items only");
+}
+
+- (void)testUnconfiguredBuildDisablesCheckForUpdatesAndSaysWhy
+{
+    MPMainController *controller =
+        [[MPMainController alloc] initWithInfoDictionary:@{}];
     NSMenuItem *item =
         [[NSMenuItem alloc] initWithTitle:@"Check for Updates…"
                                    action:@selector(checkForUpdates:)
@@ -82,6 +123,33 @@
 
     XCTAssertFalse([controller validateMenuItem:item],
                    @"With the updater not started the item must be disabled");
+    XCTAssertNotNil(controller.updatesUnavailableReason);
+    XCTAssertEqualObjects(item.toolTip, controller.updatesUnavailableReason,
+                          @"the greyed-out item must say why");
+}
+
+- (void)testConfiguredBuildHasNoUnavailableReason
+{
+    NSString *key = @"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    MPMainController *controller = [[MPMainController alloc]
+        initWithInfoDictionary:@{@"SUPublicEDKey": key}];
+    XCTAssertNil(controller.updatesUnavailableReason);
+}
+
+- (void)testPreReleaseOptionIsGreyedOutWhenUpdatesAreOff
+{
+    MPGeneralPreferencesViewController *pane =
+        [[MPGeneralPreferencesViewController alloc] init];
+    pane.updatesUnavailableReason = @"No key.";
+    [pane view];
+
+    XCTAssertNotNil(pane.preReleasesToggle, @"outlet must be connected");
+    XCTAssertFalse(pane.preReleasesToggle.enabled);
+    XCTAssertEqualObjects(pane.preReleasesToggle.toolTip, @"No key.");
+
+    pane.updatesUnavailableReason = nil;
+    XCTAssertTrue(pane.preReleasesToggle.enabled);
+    XCTAssertNil(pane.preReleasesToggle.toolTip);
 }
 
 @end

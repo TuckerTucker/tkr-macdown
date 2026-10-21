@@ -102,6 +102,7 @@
 		B3157DD9F12832445A6E232E /* MPPreviewTextCountTests.m in Sources */ = {isa = PBXBuildFile; fileRef = E743AF43E51A076C77657194 /* MPPreviewTextCountTests.m */; };
 		B5C5C1666A506FEA86435D25 /* libPods-macdown-cmd.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 263367245B2D78A42C2F19D7 /* libPods-macdown-cmd.a */; };
 		C02DBE3F2F943B31BC77563A /* MPPreviewHostTests.m in Sources */ = {isa = PBXBuildFile; fileRef = C46B36A256B4574E1167FB41 /* MPPreviewHostTests.m */; };
+		C28DD92446E20092423286A2 /* MPOpenRequest.m in Sources */ = {isa = PBXBuildFile; fileRef = 402DEA602DC0CA86F80A12AB /* MPOpenRequest.m */; };
 		CA827C99D7DC077F3DD86733 /* MPPreviewNavigationPolicy.m in Sources */ = {isa = PBXBuildFile; fileRef = 1BF87F73E493078746291359 /* MPPreviewNavigationPolicy.m */; };
 		D34BA07B3550798BF369AAA7 /* MPRendererTests.m in Sources */ = {isa = PBXBuildFile; fileRef = EC68498B14F64FD3B370E9DB /* MPRendererTests.m */; };
 		DC82B6355B9272D903C8A2D4 /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A6382AA9E5C8EE4C37D231D /* UniformTypeIdentifiers.framework */; };
@@ -109,6 +110,7 @@
 		EB61716467E684D0A63316FB /* MPScrollSyncMap.m in Sources */ = {isa = PBXBuildFile; fileRef = 945FFED81AADAA28FC2F9D68 /* MPScrollSyncMap.m */; };
 		EBFE3157737058F5A63699C8 /* libPods-MacDownTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3C949FDE45493AE77DAD9BF4 /* libPods-MacDownTests.a */; };
 		EDACEE4053502AFBBFC66D8A /* MPDocumentPreviewTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8381CDC1CEFBD3C9DD01B8E2 /* MPDocumentPreviewTests.m */; };
+		F92B584A2E7EFFA7FBF58912 /* MPErrorPresenting.m in Sources */ = {isa = PBXBuildFile; fileRef = 3651114FA6511993FC47D3DC /* MPErrorPresenting.m */; };
 		F9E8DE27C037F68F20F71D0A /* MPPlugInTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 0EF4F4A7810E79B7083F0BFE /* MPPlugInTests.m */; };
 		FEE1B43903302C4E5AEF3BD3 /* PDFKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9D7738CEA077CC9D57D9C78D /* PDFKit.framework */; };
 /* End PBXBuildFile section */
@@ -169,6 +171,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		05D17E338DEE0BF4B32591DD /* MPErrorPresenting.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = MPErrorPresenting.h; path = MPErrorPresenting.h; sourceTree = "<group>"; };
 		07DA2BD066BBC2D2C7858DFF /* MPUpdaterConfigurationTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPUpdaterConfigurationTests.m; sourceTree = "<group>"; };
 		0A522E6224E5AF7DD0E924E3 /* MPToolbarControllerTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPToolbarControllerTests.m; sourceTree = "<group>"; };
 		0A6382AA9E5C8EE4C37D231D /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
@@ -510,8 +513,10 @@
 		263367245B2D78A42C2F19D7 /* libPods-macdown-cmd.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-macdown-cmd.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		294AAF8EDA2A63AEFC457A19 /* MPPreviewTextCount.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPPreviewTextCount.m; sourceTree = "<group>"; };
 		3028039D1FD84EAB0055B0DA /* contribute.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = contribute.md; path = Resources/contribute.md; sourceTree = "<group>"; };
+		3651114FA6511993FC47D3DC /* MPErrorPresenting.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = MPErrorPresenting.m; path = MPErrorPresenting.m; sourceTree = "<group>"; };
 		39EFCAE04F60154F0C8C5469 /* Pods-MacDown.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MacDown.release.xcconfig"; path = "Pods/Target Support Files/Pods-MacDown/Pods-MacDown.release.xcconfig"; sourceTree = "<group>"; };
 		3C949FDE45493AE77DAD9BF4 /* libPods-MacDownTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-MacDownTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		402DEA602DC0CA86F80A12AB /* MPOpenRequest.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = MPOpenRequest.m; path = Code/Application/MPOpenRequest.m; sourceTree = "<group>"; };
 		42F926DD38559C7CEDB6E42F /* libPods-MacDown.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-MacDown.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4DBAA63927A60EB2150642B3 /* Pods-macdown-cmd.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-macdown-cmd.debug.xcconfig"; path = "Pods/Target Support Files/Pods-macdown-cmd/Pods-macdown-cmd.debug.xcconfig"; sourceTree = "<group>"; };
 		50B3796280AF2F81B2E99C89 /* MPRendererStubs.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = MPRendererStubs.h; sourceTree = "<group>"; };
@@ -530,6 +535,7 @@
 		905EF1A8196164CA00FC3CE9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		945FFED81AADAA28FC2F9D68 /* MPScrollSyncMap.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPScrollSyncMap.m; sourceTree = "<group>"; };
 		9D7738CEA077CC9D57D9C78D /* PDFKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PDFKit.framework; path = System/Library/Frameworks/PDFKit.framework; sourceTree = SDKROOT; };
+		A362007AB792110E871A3F3F /* MPOpenRequest.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = MPOpenRequest.h; path = Code/Application/MPOpenRequest.h; sourceTree = "<group>"; };
 		A98D1BFABF18BD688B6CB8B0 /* MPPreviewSchemeHandler.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = MPPreviewSchemeHandler.h; sourceTree = "<group>"; };
 		B8CF514AAA3F23EB95BD7052 /* MPPreviewNavigationPolicy.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = MPPreviewNavigationPolicy.h; sourceTree = "<group>"; };
 		C46B36A256B4574E1167FB41 /* MPPreviewHostTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPPreviewHostTests.m; sourceTree = "<group>"; };
@@ -655,6 +661,8 @@
 				1F0D9D64194AC7CF008E1856 /* MPUtilities.m */,
 				E621D782EB1A77724A240E4E /* MPPreviewTextCount.h */,
 				294AAF8EDA2A63AEFC457A19 /* MPPreviewTextCount.m */,
+				05D17E338DEE0BF4B32591DD /* MPErrorPresenting.h */,
+				3651114FA6511993FC47D3DC /* MPErrorPresenting.m */,
 			);
 			name = Utility;
 			path = Code/Utility;
@@ -800,6 +808,8 @@
 				1F5A37131C869C81006E63E7 /* MPPlugInController.m */,
 				85E24E5A1E5019C00056E696 /* MPToolbarController.h */,
 				85E24E5B1E5019C00056E696 /* MPToolbarController.m */,
+				A362007AB792110E871A3F3F /* MPOpenRequest.h */,
+				402DEA602DC0CA86F80A12AB /* MPOpenRequest.m */,
 			);
 			name = Application;
 			sourceTree = "<group>";
@@ -1341,6 +1351,8 @@
 				572EBF54050182B2F4CC3D7C /* MPPreviewTextCount.m in Sources */,
 				CA827C99D7DC077F3DD86733 /* MPPreviewNavigationPolicy.m in Sources */,
 				EB61716467E684D0A63316FB /* MPScrollSyncMap.m in Sources */,
+				C28DD92446E20092423286A2 /* MPOpenRequest.m in Sources */,
+				F92B584A2E7EFFA7FBF58912 /* MPErrorPresenting.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

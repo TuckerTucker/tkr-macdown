@@ -12,10 +12,29 @@
 
 @interface MPGeneralPreferencesViewController ()
 @property (weak) IBOutlet NSButton *autoRenderingToggle;
+@property (weak) IBOutlet NSButton *preReleasesToggle;
 @end
 
 
 @implementation MPGeneralPreferencesViewController
+
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    [self updatePreReleasesToggle];
+}
+
+- (void)setUpdatesUnavailableReason:(NSString *)reason
+{
+    _updatesUnavailableReason = [reason copy];
+    [self updatePreReleasesToggle];
+}
+
+- (void)updatePreReleasesToggle
+{
+    self.preReleasesToggle.enabled = (self.updatesUnavailableReason == nil);
+    self.preReleasesToggle.toolTip = self.updatesUnavailableReason;
+}
 
 #pragma mark - MASPreferencesViewController
 

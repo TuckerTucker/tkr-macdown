@@ -108,10 +108,8 @@
 	<string>NSApplication</string>
 	<key>OSAScriptingDefinition</key>
 	<string>MacDown.sdef</string>
-	<key>SUBetaFeedURL</key>
-	<string>https://macdown.uranusjr.com/sparkle/macdown/testing/appcast.xml</string>
 	<key>SUFeedURL</key>
-	<string>https://macdown.uranusjr.com/sparkle/macdown/stable/appcast.xml</string>
+	<string>https://raw.githubusercontent.com/TuckerTucker/tkr-macdown/master/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>$(SPARKLE_PUBLIC_ED_KEY)</string>
 	<key>UTExportedTypeDeclarations</key>

@@ -12,4 +12,8 @@
 @interface MPGeneralPreferencesViewController : MPPreferencesViewController
     <MASPreferencesViewController>
 
+// When set, updates are off in this build: the pre-release option is greyed
+// out and its tool tip carries this reason.
+@property (nonatomic, copy) NSString *updatesUnavailableReason;
+
 @end

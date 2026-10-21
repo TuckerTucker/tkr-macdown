@@ -22,6 +22,8 @@
 #import "MPHtmlPreferencesViewController.h"
 #import "MPTerminalPreferencesViewController.h"
 #import "MPDocument.h"
+#import "MPErrorPresenting.h"
+#import "MPOpenRequest.h"
 
 
 static NSString * const kMPTreatLastSeenStampKey = @"treatLastSeenStamp";
@@ -93,9 +95,14 @@ NS_INLINE void treat()
 }
 
 
+NSString * const MPUpdaterBetaChannel = @"beta";
+
+
 @interface MPMainController () <SPUUpdaterDelegate>
 @property (readonly) NSWindowController *preferencesWindowController;
 @property (readonly) SPUStandardUpdaterController *updaterController;
+@property (readonly) NSDictionary *info;
+@property (readonly) MPOpenRequest *openRequest;
 @end
 
 
@@ -116,126 +123,43 @@ NS_INLINE void treat()
 - (void)openUrlSchemeAppleEvent:(NSAppleEventDescriptor *)event
                  withReplyEvent:(NSAppleEventDescriptor *)reply
 {
-    NSString *urlString = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
-    if (!urlString) {
-        return;
-    }
-    NSURL *url = [[NSURL alloc] initWithString:urlString];
-    if (!url) {
-        return;
-    }
-    NSURLComponents *urlComponents = [NSURLComponents componentsWithURL:url
-                                                resolvingAgainstBaseURL:NO];
-    if (!urlComponents) {
-        return;
-    }
-    NSString *host = urlComponents.host;
-    if (!host || ![host isEqualToString:@"open"]) {
-        return;
-    }
-    NSArray *queryItems = urlComponents.queryItems;
-    if (!queryItems) {
-        return;
-    }
-    NSString *fileParam = [self valueForKey:@"url" fromQueryItems:queryItems];
-    if (!fileParam) {
-        return;
-    }
-    // FIXME: Could not figure out how to place the insertion point at a given
-    // line and column.
-    /* Unused */ NSString *lineParam = [self valueForKey:@"line"
-                                          fromQueryItems:queryItems];
-    /* Unused */ NSString *columnParam = [self valueForKey:@"column"
-                                            fromQueryItems:queryItems];
-    NSLog(@"%@:%@:%@", fileParam, lineParam, columnParam);
+    NSString *urlString =
+        [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
+    [self handleOpenRequest:urlString];
+}
 
-    // SECURITY: the `url` query parameter is attacker-controllable (it arrives
-    // from a browser via the x-macdown:// scheme). Only open it if it passes
-    // validation — a non-file scheme (http://, javascript:, data:, …) or a
-    // path outside the set of openable local files is rejected here.
-    NSURL *target = [self validatedFileURLFromString:fileParam];
-    if (!target) {
-        NSLog(@"Rejected x-macdown open request for unsafe url: %@", fileParam);
+- (void)handleOpenRequest:(NSString *)request
+{
+    // SECURITY: the request arrives from a browser or another app, so
+    // everything in it is attacker-controllable. MPOpenRequest refuses
+    // anything but an editable file outside the system folders; the user is
+    // told why, since they followed the link expecting a document.
+    // FIXME: The line and column parameters are not used yet.
+    NSError *error = nil;
+    NSURL *target = [self.openRequest fileURLForRequest:request error:&error];
+    if (!target)
+    {
+        [self.errorPresenter presentError:error];
         return;
     }
     NSDocumentController *c = [NSDocumentController sharedDocumentController];
     [c openDocumentWithContentsOfURL:target display:YES completionHandler:
-     ^(NSDocument *document, BOOL wasOpen, NSError *error) {
-         if (!document || wasOpen || error)
+     ^(NSDocument *document, BOOL wasOpen, NSError *openError) {
+         if (!document)
+         {
+             // This variant of the open call leaves presenting to the caller.
+             BOOL cancelled = [openError.domain isEqual:NSCocoaErrorDomain]
+                 && openError.code == NSUserCancelledError;
+             if (openError && !cancelled)
+                 [self.errorPresenter presentError:openError];
+             return;
+         }
+         if (wasOpen)
              return;
          NSRect frame = [NSScreen mainScreen].visibleFrame;
          for (NSWindowController *wc in document.windowControllers)
              [wc.window setFrame:frame display:YES];
      }];
-
-}
-
-// Validate the attacker-controllable `url` value carried by an x-macdown://
-// open request and, if it is safe to open, return a canonical file:// URL for
-// it. Returns nil (i.e. "reject") when the value is not a local markdown-style
-// file the user could reasonably open. Exposed (via a test-only category) so
-// the guard can be unit-tested in isolation.
-//
-// Rejected inputs include:
-//   - any non-file scheme (http://, https://, ftp://, javascript:, data:, …)
-//   - paths that do not resolve to an existing regular file
-//   - directories
-//   - sensitive system locations (e.g. /etc/passwd, /System, /usr, /bin)
-//   - "../" traversal / symlink tricks that escape into the above
-- (NSURL *)validatedFileURLFromString:(NSString *)urlString
-{
-    if (!urlString.length)
-        return nil;
-
-    NSURL *target = [NSURL URLWithString:urlString];
-    if (!target)
-        return nil;
-
-    // Only local files may be opened via the URL scheme.
-    if (![target.scheme.lowercaseString isEqualToString:@"file"])
-        return nil;
-
-    NSString *path = target.path;
-    if (!path.length)
-        return nil;
-
-    // Resolve "../" traversal and symlinks so the guards below cannot be
-    // bypassed by, e.g., file:///var/folders/../../etc/passwd.
-    NSString *resolved =
-        [[path stringByStandardizingPath] stringByResolvingSymlinksInPath];
-    if (!resolved.length)
-        return nil;
-
-    // The target must be an existing regular file, not a directory.
-    NSFileManager *manager = [NSFileManager defaultManager];
-    BOOL isDirectory = NO;
-    if (![manager fileExistsAtPath:resolved isDirectory:&isDirectory]
-            || isDirectory)
-        return nil;
-
-    // Reject sensitive system locations even when they technically exist.
-    static NSArray *blockedPrefixes = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        blockedPrefixes = @[@"/etc", @"/private/etc", @"/System", @"/usr",
-                            @"/bin", @"/sbin", @"/dev", @"/cores", @"/Library",
-                            @"/private/var/db", @"/private/var/root"];
-    });
-    for (NSString *prefix in blockedPrefixes)
-    {
-        if ([resolved isEqualToString:prefix]
-                || [resolved hasPrefix:[prefix stringByAppendingString:@"/"]])
-            return nil;
-    }
-
-    return [NSURL fileURLWithPath:resolved];
-}
-
-- (NSString *)valueForKey:(NSString *)key fromQueryItems:(NSArray *)queryItems
-{
-    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"name=%@", key];
-    NSURLQueryItem *queryItem = [[queryItems filteredArrayUsingPredicate:predicate] firstObject];
-    return queryItem.value;
 }
 
 - (MPPreferences *)preferences
@@ -247,8 +171,11 @@ NS_INLINE void treat()
 {
     if (!_preferencesWindowController)
     {
+        MPGeneralPreferencesViewController *general =
+            [[MPGeneralPreferencesViewController alloc] init];
+        general.updatesUnavailableReason = self.updatesUnavailableReason;
         NSArray *vcs = @[
-            [[MPGeneralPreferencesViewController alloc] init],
+            general,
             [[MPMarkdownPreferencesViewController alloc] init],
             [[MPEditorPreferencesViewController alloc] init],
             [[MPHtmlPreferencesViewController alloc] init],
@@ -284,6 +211,17 @@ NS_INLINE void treat()
     [self.updaterController checkForUpdates:sender];
 }
 
+- (NSString *)updatesUnavailableReason
+{
+    if ([MPMainController isUpdaterConfiguredWithInfoDictionary:self.info])
+        return nil;
+    return NSLocalizedString(
+        @"This copy of MacDown can't check for updates: it was built without "
+        @"the key that verifies downloads. Get new versions from the MacDown "
+        @"releases page.",
+        @"Why Check for Updates is unavailable");
+}
+
 + (BOOL)isUpdaterConfiguredWithInfoDictionary:(NSDictionary *)info
 {
     id key = info[@"SUPublicEDKey"];
@@ -298,9 +236,17 @@ NS_INLINE void treat()
 
 - (instancetype)init
 {
+    return [self initWithInfoDictionary:[NSBundle mainBundle].infoDictionary];
+}
+
+- (instancetype)initWithInfoDictionary:(NSDictionary *)info
+{
     self = [super init];
     if (!self)
         return self;
+    _info = [info copy];
+    _openRequest = [[MPOpenRequest alloc] initWithInfoDictionary:info];
+    _errorPresenter = NSApp;
 
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
     [center addObserver:self selector:@selector(showFirstLaunchTips)
@@ -316,11 +262,9 @@ NS_INLINE void treat()
         [[SPUStandardUpdaterController alloc] initWithStartingUpdater:NO
                                                       updaterDelegate:self
                                                    userDriverDelegate:nil];
-    NSDictionary *info = [NSBundle mainBundle].infoDictionary;
+    // Why it is off is shown on the menu item and in Preferences.
     if ([MPMainController isUpdaterConfiguredWithInfoDictionary:info])
         [_updaterController startUpdater];
-    else
-        NSLog(@"Updates disabled: this build has no SUPublicEDKey.");
     return self;
 }
 
@@ -347,9 +291,13 @@ NS_INLINE void treat()
 - (BOOL)validateMenuItem:(NSMenuItem *)item
 {
     // Not started (no signing key) means canCheckForUpdates is NO, so the
-    // item is shown greyed out rather than failing when chosen.
+    // item is shown greyed out rather than failing when chosen, and its tool
+    // tip says why.
     if (item.action == @selector(checkForUpdates:))
+    {
+        item.toolTip = self.updatesUnavailableReason;
         return self.updaterController.updater.canCheckForUpdates;
+    }
     return YES;
 }
 
@@ -357,13 +305,15 @@ NS_INLINE void treat()
 #pragma mark - SPUUpdaterDelegate
 
 // The updater is an SPUStandardUpdaterController owned by this controller,
-// which is its updaterDelegate. Both feeds are HTTPS; updates are
-// accepted only with a valid EdDSA signature (SUPublicEDKey in Info.plist).
-- (NSString *)feedURLStringForUpdater:(SPUUpdater *)updater
+// which is its updaterDelegate. It reads the one feed, SUFeedURL, over
+// HTTPS, and accepts an update only with a valid EdDSA signature
+// (SUPublicEDKey). Pre-releases are the feed's items in the beta channel;
+// items without a channel are offered to everyone.
+- (NSSet<NSString *> *)allowedChannelsForUpdater:(SPUUpdater *)updater
 {
     if (self.preferences.updateIncludesPreReleases)
-        return [NSBundle mainBundle].infoDictionary[@"SUBetaFeedURL"];
-    return [NSBundle mainBundle].infoDictionary[@"SUFeedURL"];
+        return [NSSet setWithObject:MPUpdaterBetaChannel];
+    return [NSSet set];
 }
 
 
