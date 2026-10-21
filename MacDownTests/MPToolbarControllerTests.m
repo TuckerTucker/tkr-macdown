@@ -35,6 +35,7 @@
 
 @interface MPToolbarControllerTests : XCTestCase
 @property (strong) MPToolbarController *controller;
+@property (strong) NSToolbar *toolbar;
 @end
 
 @implementation MPToolbarControllerTests
@@ -43,6 +44,7 @@
 {
     [super setUp];
     self.controller = [[MPToolbarController alloc] init];
+    self.toolbar = [[NSToolbar alloc] initWithIdentifier:@"MPToolbarTests"];
 }
 
 - (void)tearDown
@@ -59,7 +61,7 @@
     // (and walked flexibleSpaceAfterIndices past its end). It must now return a
     // populated list and simply not crash.
     NSArray<NSString *> *identifiers =
-        [self.controller toolbarDefaultItemIdentifiers:nil];
+        [self.controller toolbarDefaultItemIdentifiers:self.toolbar];
 
     XCTAssertNotNil(identifiers);
     XCTAssertGreaterThan(identifiers.count, 0u);
@@ -68,7 +70,7 @@
 - (void)testDefaultItemIdentifiersUseFlexibleSpacesAndExcludeOptionalItems
 {
     NSArray<NSString *> *identifiers =
-        [self.controller toolbarDefaultItemIdentifiers:nil];
+        [self.controller toolbarDefaultItemIdentifiers:self.toolbar];
 
     // No fixed spaces are intended in the default set.
     XCTAssertFalse([identifiers containsObject:NSToolbarSpaceItemIdentifier]);
@@ -81,10 +83,25 @@
     XCTAssertFalse([identifiers containsObject:@"strikethrough"]);
 }
 
+// Flexible spaces follow the items at positions 2, 3, 5, 7 and 11 of the
+// full item list, counting the three items left out of the default set.
+- (void)testDefaultItemIdentifiersPlaceFlexibleSpacesAfterTheirItems
+{
+    NSString *flex = NSToolbarFlexibleSpaceItemIdentifier;
+    NSArray<NSString *> *expected = @[
+        @"indent-group", @"text-formatting-group", @"heading-group", flex,
+        @"list-group", flex, @"blockquote", @"code", flex, @"link", @"image",
+        flex, @"copy-html", flex, @"layout",
+    ];
+    XCTAssertEqualObjects(
+        [self.controller toolbarDefaultItemIdentifiers:self.toolbar],
+        expected);
+}
+
 - (void)testAllowedItemIdentifiersNonEmpty
 {
     NSArray<NSString *> *allowed =
-        [self.controller toolbarAllowedItemIdentifiers:nil];
+        [self.controller toolbarAllowedItemIdentifiers:self.toolbar];
 
     XCTAssertNotNil(allowed);
     XCTAssertGreaterThan(allowed.count, 0u);
