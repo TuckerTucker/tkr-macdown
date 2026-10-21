@@ -19,6 +19,7 @@
 - (BOOL)isPreviewReady;
 - (NSTextView *)editor;
 - (NSArray<NSNumber *> *)webViewHeaderLocations;
+- (void)refreshPreviewMetrics:(void (^)(MPDocument *document))completion;
 @end
 
 
@@ -175,6 +176,29 @@
     XCTAssertTrue([pdf.string containsString:@"The final paragraph."],
                   @"the PDF is missing the end of the document");
     XCTAssertTrue([pdf.string containsString:@"Paragraph 0 of"]);
+}
+
+// A reply from the web process can arrive after the window has closed; the
+// document's completion work reads the editor, which is gone by then.
+- (void)testPreviewRepliesAfterCloseAreDropped
+{
+    [self openMarkdown:@"# Title\n\nText.\n"];
+    WKWebView *preview = self.document.preview;
+
+    __block BOOL completed = NO;
+    [self.document refreshPreviewMetrics:^(MPDocument *document) {
+        completed = YES;
+    }];
+    // Replies come back in the order the scripts were sent, so once this
+    // one arrives the metrics reply has been handled.
+    XCTestExpectation *drained = [self expectationWithDescription:@"drained"];
+    [preview evaluateJavaScript:@"0" completionHandler:^(id r, NSError *e) {
+        [drained fulfill];
+    }];
+    [self.document close];
+    [self waitForExpectations:@[drained] timeout:10.0];
+
+    XCTAssertFalse(completed, @"a preview reply ran after the document closed");
 }
 
 // #114, #287, #1023: with scroll syncing on, either pane drives the other.

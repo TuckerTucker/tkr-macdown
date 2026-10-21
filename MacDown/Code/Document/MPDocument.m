@@ -181,7 +181,7 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 @property (weak) IBOutlet NSToolbar *toolbar;
 @property (weak) IBOutlet MPDocumentSplitView *splitView;
 @property (weak) IBOutlet NSView *editorContainer;
-@property (unsafe_unretained) IBOutlet MPEditorView *editor;
+@property (weak) IBOutlet MPEditorView *editor;
 @property (weak) IBOutlet NSLayoutConstraint *editorPaddingBottom;
 @property (weak) IBOutlet NSView *previewPlaceholder;
 @property (strong) WKWebView *preview;
@@ -215,6 +215,9 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 @property (strong) NSMenuItem *charMenuItem;
 @property (strong) NSMenuItem *charNoSpacesMenuItem;
 @property (nonatomic) BOOL needsToUnregister;
+// Set by -close. Replies from the preview's web process can arrive after it,
+// and must not touch the editor or the window any more.
+@property (nonatomic) BOOL closed;
 @property (nonatomic) BOOL alreadyRenderingInWeb;
 @property (nonatomic) BOOL renderToWebPending;
 @property (strong) NSArray<NSNumber *> *webViewHeaderLocations;
@@ -461,6 +464,7 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
         // Close can be called multiple times, but this can only be done once.
         // http://www.cocoabuilder.com/archive/cocoa/240166-nsdocument-close-method-calls-itself.html
         self.needsToUnregister = NO;
+        self.closed = YES;
 
         // Need to cleanup these so that callbacks won't crash the app.
         [self.highlighter deactivate];
@@ -1113,9 +1117,9 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
     // syncing aligns on.
     if (!self.isPreviewReady || !self.previewVisible)
         return;
-    [self refreshPreviewMetrics:^{
-        if (self.preferences.editorSyncScrolling)
-            [self syncScrollers];
+    [self refreshPreviewMetrics:^(MPDocument *document) {
+        if (document.preferences.editorSyncScrolling)
+            [document syncScrollers];
     }];
 }
 
@@ -1468,18 +1472,18 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
 - (void)previewDidFinishRendering
 {
     [self scaleWebview];
-    [self refreshPreviewMetrics:^{
-        [self redrawDivider];
-        if (self.preferences.editorSyncScrolling)
+    [self refreshPreviewMetrics:^(MPDocument *document) {
+        [document redrawDivider];
+        if (document.preferences.editorSyncScrolling)
         {
-            [self updateHeaderLocations];
-            [self syncScrollers];
+            [document updateHeaderLocations];
+            [document syncScrollers];
         }
         else
         {
             // Content laid out after the page loaded (MathJax, images) can
             // move things; settle on the position the user left it at.
-            [self scrollPreviewTo:self.lastPreviewScrollTop];
+            [document scrollPreviewTo:document.lastPreviewScrollTop];
         }
     }];
 }
@@ -1500,14 +1504,16 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
     self.renderToWebPending = NO;
 }
 
-- (void)refreshPreviewMetrics:(void (^)(void))completion
+- (void)refreshPreviewMetrics:(void (^)(MPDocument *document))completion
 {
+    // The completion is handed the document rather than capturing it, so a
+    // reply that arrives after -close finds nothing to keep alive or touch.
     __weak MPDocument *weakSelf = self;
     [self.preview evaluateJavaScript:kMPPreviewMetricsScript inFrame:nil
                       inContentWorld:MPPreviewBridge.contentWorld
                    completionHandler:^(id result, NSError *error) {
         MPDocument *strongSelf = weakSelf;
-        if (!strongSelf)
+        if (!strongSelf || strongSelf.closed)
             return;
         if ([result isKindOfClass:[NSDictionary class]])
         {
@@ -1538,7 +1544,7 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
             }
         }
         if (completion)
-            completion();
+            completion(strongSelf);
     }];
 }
 
@@ -1895,7 +1901,7 @@ typedef NS_ENUM(NSUInteger, MPWordCountType) {
     MPPreviewEvaluateTextCount(self.preview,
                                ^(MPPreviewTextCount count, NSError *error) {
         MPDocument *strongSelf = weakSelf;
-        if (!strongSelf || error)
+        if (!strongSelf || strongSelf.closed || error)
             return;
 
         strongSelf.totalWords = count.words;
