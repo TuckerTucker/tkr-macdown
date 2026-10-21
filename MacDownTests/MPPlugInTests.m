@@ -18,9 +18,10 @@
 //  which neither developer machines without an account nor CI have, and
 //  minting one locally is exactly what the requirement is meant to refuse.
 //  The accept path is therefore covered in two halves:
-//    - the real verifier accepts an Apple-signed bundle that ships with
-//      macOS (/System/Applications/Calculator.app), proving that a validly
-//      signed, Apple-anchored bundle passes every check; and
+//    - the real verifier, given a requirement Apple's own signature meets,
+//      accepts an Apple-signed bundle that ships with macOS
+//      (/System/Applications/Calculator.app), proving that a validly
+//      signed bundle passes every structural check; and
 //    - MPPlugIn, given an injected verifier that accepts, loads the bundle
 //      and instantiates its principal class, proving the load path still
 //      works once verification passes.
@@ -339,11 +340,13 @@ static NSString *sFixtureFailure;
                   kMPAppleSignedBundlePath);
 
     BOOL ok = NO;
+    MPPlugInSignatureVerifier *verifier = [[MPPlugInSignatureVerifier alloc]
+        initWithRequirement:@"anchor apple"];
     NSError *error = [self verifyPath:kMPAppleSignedBundlePath
-        withVerifier:[[MPPlugInSignatureVerifier alloc] init] accepted:&ok];
+                         withVerifier:verifier accepted:&ok];
 
-    XCTAssertTrue(ok, @"A validly signed, Apple-anchored bundle must pass: %@",
-                  error);
+    XCTAssertTrue(ok, @"A validly signed bundle meeting the requirement must "
+                      @"pass: %@", error);
 }
 
 - (void)testVerifierRejectsValidSignatureFailingRequirement
@@ -360,11 +363,32 @@ static NSString *sFixtureFailure;
                    @"%@", error);
 }
 
-- (void)testDefaultRequirementIsAppleAnchored
+// "anchor apple generic" alone accepted any Apple-anchored signer,
+// including free Apple Development certificates. A signer that is Apple
+// anchored but not Developer ID must now be refused; Apple's own signature
+// on Calculator is one that exists on every machine.
+- (void)testDefaultRequirementRefusesAppleAnchoredNonDeveloperID
 {
-    MPPlugInSignatureVerifier *verifier =
-        [[MPPlugInSignatureVerifier alloc] init];
-    XCTAssertEqualObjects(verifier.requirement, @"anchor apple generic");
+    BOOL ok = YES;
+    NSError *error = [self verifyPath:kMPAppleSignedBundlePath
+        withVerifier:[[MPPlugInSignatureVerifier alloc] init] accepted:&ok];
+
+    XCTAssertFalse(ok, @"Only Developer ID signers may load");
+    XCTAssertEqual(error.code, MPPlugInErrorRequirementNotSatisfied,
+                   @"%@", error);
+}
+
+- (void)testDefaultRequirementNamesDeveloperIDCertificates
+{
+    NSString *requirement =
+        [[MPPlugInSignatureVerifier alloc] init].requirement;
+    XCTAssertTrue([requirement hasPrefix:@"anchor apple generic"]);
+    XCTAssertTrue([requirement containsString:
+        @"certificate 1[field.1.2.840.113635.100.6.2.6] exists"],
+        @"Developer ID intermediate");
+    XCTAssertTrue([requirement containsString:
+        @"certificate leaf[field.1.2.840.113635.100.6.1.13] exists"],
+        @"Developer ID Application leaf");
 }
 
 

@@ -48,9 +48,12 @@ typedef NS_ENUM(NSInteger, MPPlugInErrorCode)
 // signer must satisfy.
 @property (nonatomic, readonly, copy) NSString *requirement;
 
-// Uses "anchor apple generic": the signing certificate must chain to
-// Apple's root, i.e. a Developer ID, Mac App Store or Apple Development
-// identity. A self-signed certificate does not satisfy it.
+// Requires a Developer ID Application signature: the certificate must
+// chain to Apple's root through the Developer ID intermediate. Apple
+// Development certificates (free with any Apple account), Apple's own
+// signature, and self-signed certificates do not satisfy it. Revocation is
+// not checked online, so plug-ins still load offline; Gatekeeper checks a
+// downloaded plug-in's notarization when it is first opened.
 - (instancetype)init;
 - (instancetype)initWithRequirement:(NSString *)requirement
     NS_DESIGNATED_INITIALIZER;

@@ -12,7 +12,14 @@
 
 NSString * const MPPlugInErrorDomain = @"com.uranusjr.macdown.plugin";
 
-static NSString * const kMPPlugInDefaultRequirement = @"anchor apple generic";
+// Developer ID: chains to Apple's root through the Developer ID
+// intermediate (marker OID ...6.2.6) to a Developer ID Application leaf
+// (...6.1.13). "anchor apple generic" alone also accepts Apple Development
+// certificates, which any Apple account can create for free.
+static NSString * const kMPPlugInDefaultRequirement =
+    @"anchor apple generic"
+    @" and certificate 1[field.1.2.840.113635.100.6.2.6] exists"
+    @" and certificate leaf[field.1.2.840.113635.100.6.1.13] exists";
 
 // Every architecture slice is checked (not just the one we would load), the
 // stricter structural rules apply (no unsealed files, no trailing data), and
