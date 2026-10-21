@@ -2,7 +2,7 @@
 
 [![](https://img.shields.io/github/release/MacDownApp/macdown.svg)](http://macdown.uranusjr.com/download/latest/)
 ![Total downloads](https://img.shields.io/github/downloads/MacDownApp/macdown/latest/total.svg)
-[![CI](https://github.com/MacDownApp/macdown/actions/workflows/ci.yml/badge.svg)](https://github.com/MacDownApp/macdown/actions/workflows/ci.yml)
+[![CI](https://github.com/TuckerTucker/tkr-macdown/actions/workflows/ci.yml/badge.svg)](https://github.com/TuckerTucker/tkr-macdown/actions/workflows/ci.yml)
 
 
 MacDown is an open source Markdown editor for OS X, released under the MIT License. The author stole the idea from [Chen Luo](https://twitter.com/chenluois)’s [Mou](http://mouapp.com) so that people can make crappy clones.
@@ -65,14 +65,16 @@ An appropriate SDK should be bundled with Xcode 5 or later versions.
 
 ### Environment Setup
 
+The CocoaPods toolchain is pinned: `.ruby-version` names the Ruby to use, and `Gemfile.lock` pins CocoaPods and its gems. The macOS system Ruby is too old for current CocoaPods; install the pinned Ruby with your version manager of choice (rbenv, chruby, asdf, mise), or with Homebrew (`brew install ruby@3.4`, then put `$(brew --prefix ruby@3.4)/bin` first on your `PATH`).
+
 After cloning the repository, run the following commands inside the repository root (directory containing this `README.md` file):
 
-    git submodule update --init
+    git submodule update --init --recursive
     bundle install
     bundle exec pod install
     make -C Dependency/peg-markdown-highlight
 
-and open `MacDown.xcworkspace` in Xcode. The first command initialises the dependency submodule(s) used in MacDown; the second one installs dependencies managed by CocoaPods.
+and open `MacDown.xcworkspace` in Xcode. The first command initialises the dependency submodule(s) used in MacDown; `bundle install` installs the pinned CocoaPods, and `bundle exec pod install` uses it to install the dependencies managed by CocoaPods. Always run `pod` through `bundle exec`, so `Podfile.lock` is written by the pinned version rather than whatever `pod` is on your `PATH`.
 
 Refer to the official guides of Git and CocoaPods if you need more instructions. If you run into build issues later on, try running the following commands to update dependencies:
 

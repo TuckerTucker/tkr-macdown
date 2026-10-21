@@ -9,15 +9,10 @@
   "author": "Franklin Yu",
   "license": "MIT",
   "scripts": {
-    "build": "sass --quiet --load-path node_modules index.sass | sed s/.markdown-body/body/"
+    "build": "make"
   },
   "dependencies": {
     "primer-markdown": "^4.0.0",
     "sass": "^1.77.0"
-  },
-  "overrides": {
-    "lodash": ">=4.17.21",
-    "minimist": ">=1.2.6",
-    "tough-cookie": ">=4.1.3"
   }
 }
