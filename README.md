@@ -2,7 +2,7 @@
 
 [![](https://img.shields.io/github/release/MacDownApp/macdown.svg)](http://macdown.uranusjr.com/download/latest/)
 ![Total downloads](https://img.shields.io/github/downloads/MacDownApp/macdown/latest/total.svg)
-[![CI](https://github.com/MacDownApp/macdown/actions/workflows/ci.yml/badge.svg)](https://github.com/MacDownApp/macdown/actions/workflows/ci.yml)
+[![CI](https://github.com/TuckerTucker/tkr-macdown/actions/workflows/ci.yml/badge.svg)](https://github.com/TuckerTucker/tkr-macdown/actions/workflows/ci.yml)
 
 
 MacDown is an open source Markdown editor for OS X, released under the MIT License. The author stole the idea from [Chen Luo](https://twitter.com/chenluois)’s [Mou](http://mouapp.com) so that people can make crappy clones.
