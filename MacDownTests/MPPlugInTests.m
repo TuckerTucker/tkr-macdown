@@ -28,13 +28,16 @@
 //
 
 #import <XCTest/XCTest.h>
+#import "MPErrorPresenting.h"
 #import "MPPlugIn.h"
+#import "MPPlugInController.h"
 
 
 static NSString * const kMPAppleSignedBundlePath =
     @"/System/Applications/Calculator.app";
 
 static NSString * const kMPLoadableDisplayName = @"Accepted Fixture";
+static NSString * const kMPMenuDisplayName = @"Menu Fixture";
 
 
 /// Runs a tool to completion with a minimal environment: the test host's own
@@ -102,6 +105,8 @@ static NSString *sProbeExecutable;
 static NSString *sProbeClassName;
 static NSString *sLoadableExecutable;
 static NSString *sLoadableClassName;
+static NSString *sMenuExecutable;
+static NSString *sMenuClassName;
 static NSString *sFixtureFailure;
 
 
@@ -109,7 +114,9 @@ static NSString *sFixtureFailure;
 /// about. Injected through MPPlugIn's designated initializer.
 @interface MPFixedAnswerVerifier : NSObject <MPPlugInVerifying>
 @property (nonatomic) BOOL answer;
-@property (nonatomic, copy) NSURL *askedURL;
+@property (atomic, copy) NSURL *askedURL;
+@property (atomic) NSUInteger askCount;
+@property (atomic) NSUInteger mainThreadAskCount;
 @end
 
 @implementation MPFixedAnswerVerifier
@@ -117,10 +124,35 @@ static NSString *sFixtureFailure;
 - (BOOL)verifyBundleAtURL:(NSURL *)url error:(NSError **)error
 {
     self.askedURL = url;
+    self.askCount++;
+    if ([NSThread isMainThread])
+        self.mainThreadAskCount++;
     if (!self.answer && error)
+    {
         *error = [NSError errorWithDomain:MPPlugInErrorDomain
-                                     code:MPPlugInErrorUnsigned userInfo:nil];
+            code:MPPlugInErrorUnsigned userInfo:@{
+                NSURLErrorKey: url,
+                NSLocalizedRecoverySuggestionErrorKey: @"Fixture refusal.",
+            }];
+    }
     return self.answer;
+}
+
+@end
+
+
+@interface MPRecordingPlugInErrorPresenter : NSObject <MPErrorPresenting>
+@property (nonatomic) NSMutableArray<NSError *> *errors;
+@end
+
+@implementation MPRecordingPlugInErrorPresenter
+
+- (BOOL)presentError:(NSError *)error
+{
+    if (!self.errors)
+        self.errors = [NSMutableArray array];
+    [self.errors addObject:error];
+    return NO;
 }
 
 @end
@@ -159,6 +191,14 @@ static NSString *sFixtureFailure;
     sFixtureFailure = MPCompileFixture(sFixtureDirectory, sLoadableClassName,
                                        kMPLoadableDisplayName,
                                        sLoadableExecutable);
+    if (sFixtureFailure)
+        return;
+
+    sMenuClassName = [@"MPPlugInMenu" stringByAppendingString:suffix];
+    sMenuExecutable =
+        [sFixtureDirectory stringByAppendingPathComponent:@"menu"];
+    sFixtureFailure = MPCompileFixture(sFixtureDirectory, sMenuClassName,
+                                       kMPMenuDisplayName, sMenuExecutable);
 }
 
 + (void)tearDown
@@ -299,7 +339,10 @@ static NSString *sFixtureFailure;
         withVerifier:[[MPPlugInSignatureVerifier alloc] init] accepted:&ok];
 
     XCTAssertFalse(ok, @"A bundle that was never codesigned must be rejected");
-    XCTAssertEqual(error.code, MPPlugInErrorInvalidSignature, @"%@", error);
+    // The linker's signature is ad hoc and seals no resources. Checked in
+    // one pass with the requirement, the missing identity is what is
+    // reported; either way the user is told it has no Developer ID.
+    XCTAssertEqual(error.code, MPPlugInErrorAdHocSignature, @"%@", error);
 }
 
 - (void)testVerifierRejectsAdHocSignedBundle
@@ -454,6 +497,138 @@ static NSString *sFixtureFailure;
     XCTAssertNotNil(NSClassFromString(sLoadableClassName));
     XCTAssertEqualObjects(plugin.name, kMPLoadableDisplayName,
                           @"The principal class must have been instantiated");
+}
+
+
+#pragma mark - MPPlugInController
+
+- (MPPlugInController *)loadedControllerWithVerifier:
+    (id<MPPlugInVerifying>)verifier
+{
+    MPPlugInController *controller = [[MPPlugInController alloc]
+        initWithDirectory:self.workDirectory verifier:verifier];
+    [self reload:controller];
+    return controller;
+}
+
+- (void)reload:(MPPlugInController *)controller
+{
+    XCTestExpectation *done = [self expectationWithDescription:@"scan"];
+    [controller reloadWithCompletion:^{ [done fulfill]; }];
+    [self waitForExpectations:@[done] timeout:30.0];
+}
+
+- (NSMenu *)menuFor:(MPPlugInController *)controller
+{
+    NSMenu *menu = [[NSMenu alloc] initWithTitle:@"Plug-ins"];
+    menu.delegate = controller;
+    [controller menuNeedsUpdate:menu];
+    return menu;
+}
+
+// A refused plug-in used to vanish, with the reason only in the log.
+- (void)testRefusedPlugInIsListedGreyedOutWithTheReason
+{
+    [self unsignedPlugInNamed:@"Refused"];
+    MPPlugInController *controller = [self loadedControllerWithVerifier:
+        [[MPPlugInSignatureVerifier alloc] init]];
+
+    NSMenu *menu = [self menuFor:controller];
+    [menu update];
+
+    XCTAssertEqual(menu.numberOfItems, 1);
+    NSMenuItem *item = menu.itemArray.firstObject;
+    XCTAssertTrue([item.title containsString:@"Refused"], @"%@", item.title);
+    XCTAssertFalse(item.enabled, @"a refused plug-in must not be runnable");
+    XCTAssertTrue([item.toolTip containsString:@"Developer ID"],
+                  @"the tool tip must say what it needs: %@", item.toolTip);
+    XCTAssertTrue([item.toolTip containsString:@"code signed"],
+                  @"and what is wrong: %@", item.toolTip);
+}
+
+- (void)testSignaturesAreCheckedOnceAndOffTheMainThread
+{
+    [self probePlugInNamed:@"One"];
+    [self probePlugInNamed:@"Two"];
+    MPFixedAnswerVerifier *verifier = [[MPFixedAnswerVerifier alloc] init];
+    MPPlugInController *controller =
+        [self loadedControllerWithVerifier:verifier];
+    XCTAssertEqual(verifier.askCount, 2u);
+
+    // Opening the menu again and again re-checks nothing that is unchanged.
+    for (int i = 0; i < 3; i++)
+    {
+        [self menuFor:controller];
+        [self reload:controller];
+    }
+    XCTAssertEqual(verifier.askCount, 2u);
+    XCTAssertEqual(verifier.mainThreadAskCount, 0u);
+    XCTAssertEqual(controller.refusals.count, 2u);
+}
+
+- (void)testChangedPlugInIsCheckedAgain
+{
+    NSString *path = [self probePlugInNamed:@"Changing"];
+    MPFixedAnswerVerifier *verifier = [[MPFixedAnswerVerifier alloc] init];
+    MPPlugInController *controller =
+        [self loadedControllerWithVerifier:verifier];
+    XCTAssertEqual(verifier.askCount, 1u);
+
+    NSString *plist = [path stringByAppendingPathComponent:
+                       @"Contents/Info.plist"];
+    NSDate *later = [NSDate dateWithTimeIntervalSinceNow:60.0];
+    XCTAssertTrue([[NSFileManager defaultManager]
+        setAttributes:@{NSFileModificationDate: later}
+         ofItemAtPath:plist error:NULL]);
+    [self reload:controller];
+    XCTAssertEqual(verifier.askCount, 2u, @"a re-signed or replaced plug-in "
+                                          @"must get a fresh verdict");
+}
+
+- (void)testRemovedPlugInLeavesTheMenu
+{
+    NSString *path = [self probePlugInNamed:@"Leaving"];
+    MPFixedAnswerVerifier *verifier = [[MPFixedAnswerVerifier alloc] init];
+    MPPlugInController *controller =
+        [self loadedControllerWithVerifier:verifier];
+    XCTAssertEqual(controller.refusals.count, 1u);
+
+    XCTAssertTrue([[NSFileManager defaultManager] removeItemAtPath:path
+                                                             error:NULL]);
+    [self reload:controller];
+    XCTAssertEqual(controller.refusals.count, 0u);
+    NSMenu *menu = [self menuFor:controller];
+    XCTAssertEqual(menu.numberOfItems, 1);
+    XCTAssertFalse(menu.itemArray.firstObject.action,
+                   @"only the greyed-out empty-state item remains");
+}
+
+- (void)testPlugInThatFailsToRunSaysSo
+{
+    [self plugInNamed:@"Menu" executable:sMenuExecutable
+            className:sMenuClassName];
+    MPFixedAnswerVerifier *verifier = [[MPFixedAnswerVerifier alloc] init];
+    verifier.answer = YES;
+    MPPlugInController *controller =
+        [self loadedControllerWithVerifier:verifier];
+    MPRecordingPlugInErrorPresenter *presenter =
+        [[MPRecordingPlugInErrorPresenter alloc] init];
+    controller.errorPresenter = presenter;
+
+    NSMenu *menu = [self menuFor:controller];
+    [menu update];
+    XCTAssertEqual(menu.numberOfItems, 1);
+    NSMenuItem *item = menu.itemArray.firstObject;
+    XCTAssertEqualObjects(item.title, kMPMenuDisplayName);
+    XCTAssertTrue(item.enabled);
+
+    // The fixture has no -run:, so running it fails.
+    [menu performActionForItemAtIndex:0];
+    XCTAssertEqual(presenter.errors.count, 1u,
+                   @"a failed run must not be silent");
+    XCTAssertEqual(presenter.errors.firstObject.code, MPPlugInErrorRunFailed);
+    XCTAssertTrue([presenter.errors.firstObject.localizedDescription
+                   containsString:kMPMenuDisplayName]);
 }
 
 @end

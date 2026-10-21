@@ -33,8 +33,26 @@ static BOOL MPPlugInFail(NSError **error, MPPlugInErrorCode code,
 {
     if (error)
     {
+        NSString *name = url.lastPathComponent.stringByDeletingPathExtension;
         NSMutableDictionary *info = [NSMutableDictionary dictionary];
-        info[NSLocalizedDescriptionKey] = reason;
+        info[NSLocalizedDescriptionKey] = [NSString stringWithFormat:
+            NSLocalizedString(@"MacDown didn't load the plug-in “%@”.",
+                              @"Plug-in refused: title naming the plug-in"),
+            name];
+        info[NSLocalizedFailureReasonErrorKey] = reason;
+        NSString *folder = url.URLByDeletingLastPathComponent.path;
+        BOOL signing = code <= MPPlugInErrorRequirementNotSatisfied;
+        NSString *remedy = [NSString stringWithFormat:signing ?
+            NSLocalizedString(
+                @"MacDown only loads plug-ins signed with a Developer ID. Ask "
+                @"the plug-in's developer for a signed version, or remove it "
+                @"from %@.", @"Plug-in refused for its signature: what to do") :
+            NSLocalizedString(
+                @"Ask the plug-in's developer for a version that works with "
+                @"this MacDown, or remove it from %@.",
+                @"Plug-in failed to load: what to do"), folder];
+        info[NSLocalizedRecoverySuggestionErrorKey] =
+            [NSString stringWithFormat:@"%@ %@", reason, remedy];
         info[NSURLErrorKey] = url;
         if (cause)
             info[NSUnderlyingErrorKey] = (__bridge NSError *)cause;
@@ -43,6 +61,11 @@ static BOOL MPPlugInFail(NSError **error, MPPlugInErrorCode code,
     }
     return NO;
 }
+
+
+@interface MPPlugInSignatureVerifier ()
+@property (nonatomic) SecRequirementRef compiledRequirement;
+@end
 
 
 @implementation MPPlugInSignatureVerifier
@@ -58,18 +81,38 @@ static BOOL MPPlugInFail(NSError **error, MPPlugInErrorCode code,
     if (!self)
         return nil;
     _requirement = [requirement copy];
+    SecRequirementRef compiled = NULL;
+    if (SecRequirementCreateWithString((__bridge CFStringRef)_requirement,
+            kSecCSDefaultFlags, &compiled) == errSecSuccess)
+        _compiledRequirement = compiled;
     return self;
+}
+
+- (void)dealloc
+{
+    if (_compiledRequirement)
+        CFRelease(_compiledRequirement);
 }
 
 - (BOOL)verifyBundleAtURL:(NSURL *)url error:(NSError **)error
 {
+    if (!self.compiledRequirement)
+    {
+        NSString *reason = [NSString stringWithFormat:NSLocalizedString(
+            @"Its signing requirement \"%@\" is invalid.",
+            @"Plug-in refused: bad requirement"), self.requirement];
+        return MPPlugInFail(error, MPPlugInErrorRequirementNotSatisfied, url,
+                            reason, NULL);
+    }
+
     SecStaticCodeRef code = NULL;
     OSStatus status = SecStaticCodeCreateWithPath(
         (__bridge CFURLRef)url, kSecCSDefaultFlags, &code);
     if (status != errSecSuccess || !code)
     {
-        NSString *reason = [NSString stringWithFormat:
-            @"Cannot read code at %@ (OSStatus %d).", url.path, (int)status];
+        NSString *reason = [NSString stringWithFormat:NSLocalizedString(
+            @"Its code can't be read (OSStatus %d).",
+            @"Plug-in refused: unreadable"), (int)status];
         return MPPlugInFail(error, MPPlugInErrorInvalidSignature, url,
                             reason, NULL);
     }
@@ -82,81 +125,62 @@ static BOOL MPPlugInFail(NSError **error, MPPlugInErrorCode code,
 - (BOOL)verifyStaticCode:(SecStaticCodeRef)code url:(NSURL *)url
                    error:(NSError **)error
 {
-    // 1. Integrity: the signature exists and the bundle is unmodified.
+    // One pass hashes the bundle: integrity (the signature exists and the
+    // bundle is unmodified) is checked before the requirement, so a
+    // requirement failure means the signature is intact but its signer is
+    // not trusted.
     CFErrorRef cause = NULL;
     OSStatus status = SecStaticCodeCheckValidityWithErrors(
-        code, kMPPlugInValidityFlags, NULL, &cause);
-    if (status != errSecSuccess)
-    {
-        BOOL unsigned_ = (status == errSecCSUnsigned);
-        NSString *reason = unsigned_ ?
-            @"The plug-in is not code signed." :
-            [NSString stringWithFormat:
-                @"The plug-in's code signature is invalid (OSStatus %d).",
-                (int)status];
-        BOOL result = MPPlugInFail(
-            error, unsigned_ ? MPPlugInErrorUnsigned :
-                               MPPlugInErrorInvalidSignature,
-            url, reason, cause);
-        if (cause)
-            CFRelease(cause);
-        return result;
-    }
+        code, kMPPlugInValidityFlags, self.compiledRequirement, &cause);
+    if (status == errSecSuccess)
+        return YES;
 
-    // 2. Identity: an ad-hoc signature is intact but names nobody, so it
-    // proves nothing about where the code came from.
+    MPPlugInErrorCode errorCode = MPPlugInErrorInvalidSignature;
+    NSString *reason = nil;
+    if (status == errSecCSUnsigned)
+    {
+        errorCode = MPPlugInErrorUnsigned;
+        reason = NSLocalizedString(@"It isn't code signed.",
+                                   @"Plug-in refused: unsigned");
+    }
+    else if (status == errSecCSReqFailed)
+    {
+        // An ad-hoc signature is intact but names nobody, so it proves
+        // nothing about where the code came from.
+        errorCode = [self isAdHocSigned:code] ?
+            MPPlugInErrorAdHocSignature : MPPlugInErrorRequirementNotSatisfied;
+        reason = errorCode == MPPlugInErrorAdHocSignature ?
+            NSLocalizedString(@"It is ad-hoc signed, so no developer "
+                              @"identity stands behind it.",
+                              @"Plug-in refused: ad hoc") :
+            NSLocalizedString(@"It isn't signed with a Developer ID.",
+                              @"Plug-in refused: untrusted signer");
+    }
+    else
+    {
+        reason = [NSString stringWithFormat:NSLocalizedString(
+            @"Its code signature is invalid or it was changed after signing "
+            @"(OSStatus %d).", @"Plug-in refused: invalid signature"),
+            (int)status];
+    }
+    BOOL result = MPPlugInFail(error, errorCode, url, reason, cause);
+    if (cause)
+        CFRelease(cause);
+    return result;
+}
+
+- (BOOL)isAdHocSigned:(SecStaticCodeRef)code
+{
     CFDictionaryRef cfInfo = NULL;
-    status = SecCodeCopySigningInformation(
+    OSStatus status = SecCodeCopySigningInformation(
         code, kSecCSSigningInformation, &cfInfo);
     if (status != errSecSuccess || !cfInfo)
-    {
-        NSString *reason = [NSString stringWithFormat:
-            @"Cannot read the plug-in's signing information (OSStatus %d).",
-            (int)status];
-        return MPPlugInFail(error, MPPlugInErrorInvalidSignature, url,
-                            reason, NULL);
-    }
+        return NO;
     NSDictionary *info = CFBridgingRelease(cfInfo);
     uint32_t flags = [info[(__bridge NSString *)kSecCodeInfoFlags]
                       unsignedIntValue];
     NSArray *certificates = info[(__bridge NSString *)kSecCodeInfoCertificates];
-    if ((flags & kSecCodeSignatureAdhoc) || certificates.count == 0)
-    {
-        return MPPlugInFail(error, MPPlugInErrorAdHocSignature, url,
-                            @"The plug-in is ad-hoc signed and has no "
-                            @"signing identity.", NULL);
-    }
-
-    // 3. Trust: the signing identity must satisfy the requirement, so a
-    // certificate the attacker minted for themselves is not enough.
-    SecRequirementRef requirement = NULL;
-    status = SecRequirementCreateWithString(
-        (__bridge CFStringRef)self.requirement, kSecCSDefaultFlags,
-        &requirement);
-    if (status != errSecSuccess || !requirement)
-    {
-        NSString *reason = [NSString stringWithFormat:
-            @"The plug-in code requirement \"%@\" is invalid (OSStatus %d).",
-            self.requirement, (int)status];
-        return MPPlugInFail(error, MPPlugInErrorRequirementNotSatisfied, url,
-                            reason, NULL);
-    }
-    cause = NULL;
-    status = SecStaticCodeCheckValidityWithErrors(
-        code, kMPPlugInValidityFlags, requirement, &cause);
-    CFRelease(requirement);
-    if (status != errSecSuccess)
-    {
-        NSString *reason = [NSString stringWithFormat:
-            @"The plug-in's signer does not satisfy \"%@\" (OSStatus %d).",
-            self.requirement, (int)status];
-        BOOL result = MPPlugInFail(error, MPPlugInErrorRequirementNotSatisfied,
-                                   url, reason, cause);
-        if (cause)
-            CFRelease(cause);
-        return result;
-    }
-    return YES;
+    return (flags & kSecCodeSignatureAdhoc) || certificates.count == 0;
 }
 
 @end
@@ -184,6 +208,13 @@ static BOOL MPPlugInFail(NSError **error, MPPlugInErrorCode code,
 - (instancetype)initWithBundle:(NSBundle *)bundle
                       verifier:(id<MPPlugInVerifying>)verifier
 {
+    return [self initWithBundle:bundle verifier:verifier error:NULL];
+}
+
+- (instancetype)initWithBundle:(NSBundle *)bundle
+                      verifier:(id<MPPlugInVerifying>)verifier
+                         error:(NSError **)error
+{
     self = [super init];
     if (!self || !bundle)
         return nil;
@@ -191,24 +222,35 @@ static BOOL MPPlugInFail(NSError **error, MPPlugInErrorCode code,
     // Plug-ins live in a user-writable directory, so anything dropped there
     // would otherwise run as native code inside MacDown. Nothing from the
     // bundle is loaded until its signature checks out.
-    NSError *verifyError = nil;
-    if (![verifier verifyBundleAtURL:bundle.bundleURL error:&verifyError])
-    {
-        NSLog(@"Refusing to load plug-in %@: %@",
-              bundle.bundlePath, verifyError.localizedDescription);
+    //
+    // Accepted trade-off: the bundle is loaded from the path that was
+    // verified, so a process that swaps the executable in between loads
+    // unverified code. Such a process already runs as this user, with the
+    // same access to everything MacDown can reach; copying the bundle
+    // somewhere first would not stop it, since it can write there too.
+    if (![verifier verifyBundleAtURL:bundle.bundleURL error:error])
         return nil;
-    }
 
     if (!bundle.isLoaded)
     {
-        NSError *e = nil;
-        BOOL ok = [bundle loadAndReturnError:&e];
-        if (!ok)
+        NSError *loadError = nil;
+        if (![bundle loadAndReturnError:&loadError])
+        {
+            NSString *reason = loadError.localizedFailureReason
+                ?: loadError.localizedDescription;
+            MPPlugInFail(error, MPPlugInErrorLoadFailed, bundle.bundleURL,
+                         reason, (__bridge CFErrorRef)loadError);
             return nil;
+        }
     }
     Class plugInClass = bundle.principalClass;
     if (!plugInClass)
+    {
+        MPPlugInFail(error, MPPlugInErrorNoPrincipalClass, bundle.bundleURL,
+                     NSLocalizedString(@"It has no principal class.",
+                                       @"Plug-in refused: no class"), NULL);
         return nil;
+    }
     self.content = [[plugInClass alloc] init];
 
     if ([self.content respondsToSelector:@selector(name)])

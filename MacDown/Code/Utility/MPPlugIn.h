@@ -23,6 +23,12 @@ typedef NS_ENUM(NSInteger, MPPlugInErrorCode)
     MPPlugInErrorAdHocSignature = 3,
     // Signed, but not by an identity satisfying the code requirement.
     MPPlugInErrorRequirementNotSatisfied = 4,
+    // Verified, but the bundle's code could not be loaded.
+    MPPlugInErrorLoadFailed = 5,
+    // Loaded, but the bundle names no principal class to run.
+    MPPlugInErrorNoPrincipalClass = 6,
+    // The plug-in ran and reported that it failed.
+    MPPlugInErrorRunFailed = 7,
 };
 
 
@@ -32,7 +38,8 @@ typedef NS_ENUM(NSInteger, MPPlugInErrorCode)
 @protocol MPPlugInVerifying <NSObject>
 
 // Returns YES only if the bundle at url may be loaded. On NO, error (if
-// given) is set to an MPPlugInErrorDomain error describing why.
+// given) is set to an MPPlugInErrorDomain error whose description and
+// recovery suggestion can be shown to the user as they are.
 - (BOOL)verifyBundleAtURL:(NSURL *)url error:(NSError **)error;
 
 @end
@@ -68,10 +75,15 @@ typedef NS_ENUM(NSInteger, MPPlugInErrorCode)
 // Verifies the bundle with an MPPlugInSignatureVerifier before loading it.
 - (nullable instancetype)initWithBundle:(NSBundle *)bundle;
 
+- (nullable instancetype)initWithBundle:(NSBundle *)bundle
+                               verifier:(id<MPPlugInVerifying>)verifier;
+
 // Verifies the bundle with verifier before loading it. Returns nil, without
-// loading any of the bundle's code, if verification fails.
+// loading any of the bundle's code, if verification fails; error (if given)
+// then says why, in an MPPlugInErrorDomain error.
 - (nullable instancetype)initWithBundle:(NSBundle *)bundle
                                verifier:(id<MPPlugInVerifying>)verifier
+                                  error:(NSError **)error
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
