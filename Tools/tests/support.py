@@ -53,7 +53,7 @@ def app_info(short_version: str = '0.8.1',
         'CFBundleShortVersionString': short_version,
         'CFBundleVersion': bundle_version,
         'CFBundleBuildVersion': build_version,
-        'LSMinimumSystemVersion': '11.0',
+        'LSMinimumSystemVersion': '12.0',
     }
 
 
