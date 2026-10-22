@@ -8,7 +8,6 @@
 
 #import "MPMainController.h"
 #import <MASPreferences/MASPreferencesWindowController.h>
-#import <Sparkle/SUUpdater.h>
 #import "MPGlobals.h"
 #import "MPUtilities.h"
 #import "NSDocumentController+Document.h"
@@ -20,6 +19,8 @@
 #import "MPHtmlPreferencesViewController.h"
 #import "MPTerminalPreferencesViewController.h"
 #import "MPDocument.h"
+#import "MPErrorPresenting.h"
+#import "MPOpenRequest.h"
 
 
 static NSString * const kMPTreatLastSeenStampKey = @"treatLastSeenStamp";
@@ -93,6 +94,7 @@ NS_INLINE void treat()
 
 @interface MPMainController ()
 @property (readonly) NSWindowController *preferencesWindowController;
+@property (readonly) MPOpenRequest *openRequest;
 @end
 
 
@@ -102,21 +104,6 @@ NS_INLINE void treat()
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
 {
-    // Using private API [WebCache setDisabled:YES] to disable WebView's cache
-    id webCacheClass = (id)NSClassFromString(@"WebCache");
-    if (webCacheClass) {
-// Ignoring "undeclared selector" warning
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wundeclared-selector"
-        BOOL setDisabledValue = YES;
-        NSMethodSignature *signature = [webCacheClass methodSignatureForSelector:@selector(setDisabled:)];
-        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
-        invocation.selector = @selector(setDisabled:);
-        invocation.target = [webCacheClass class];
-        [invocation setArgument:&setDisabledValue atIndex:2];
-        [invocation invoke];
-#pragma clang diagnostic pop
-    }
     [[NSAppleEventManager sharedAppleEventManager]
         setEventHandler:self
             andSelector:@selector(openUrlSchemeAppleEvent:withReplyEvent:)
@@ -128,126 +115,43 @@ NS_INLINE void treat()
 - (void)openUrlSchemeAppleEvent:(NSAppleEventDescriptor *)event
                  withReplyEvent:(NSAppleEventDescriptor *)reply
 {
-    NSString *urlString = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
-    if (!urlString) {
-        return;
-    }
-    NSURL *url = [[NSURL alloc] initWithString:urlString];
-    if (!url) {
-        return;
-    }
-    NSURLComponents *urlComponents = [NSURLComponents componentsWithURL:url
-                                                resolvingAgainstBaseURL:NO];
-    if (!urlComponents) {
-        return;
-    }
-    NSString *host = urlComponents.host;
-    if (!host || ![host isEqualToString:@"open"]) {
-        return;
-    }
-    NSArray *queryItems = urlComponents.queryItems;
-    if (!queryItems) {
-        return;
-    }
-    NSString *fileParam = [self valueForKey:@"url" fromQueryItems:queryItems];
-    if (!fileParam) {
-        return;
-    }
-    // FIXME: Could not figure out how to place the insertion point at a given
-    // line and column.
-    /* Unused */ NSString *lineParam = [self valueForKey:@"line"
-                                          fromQueryItems:queryItems];
-    /* Unused */ NSString *columnParam = [self valueForKey:@"column"
-                                            fromQueryItems:queryItems];
-    NSLog(@"%@:%@:%@", fileParam, lineParam, columnParam);
+    NSString *urlString =
+        [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
+    [self handleOpenRequest:urlString];
+}
 
-    // SECURITY: the `url` query parameter is attacker-controllable (it arrives
-    // from a browser via the x-macdown:// scheme). Only open it if it passes
-    // validation — a non-file scheme (http://, javascript:, data:, …) or a
-    // path outside the set of openable local files is rejected here.
-    NSURL *target = [self validatedFileURLFromString:fileParam];
-    if (!target) {
-        NSLog(@"Rejected x-macdown open request for unsafe url: %@", fileParam);
+- (void)handleOpenRequest:(NSString *)request
+{
+    // SECURITY: the request arrives from a browser or another app, so
+    // everything in it is attacker-controllable. MPOpenRequest refuses
+    // anything but an editable file outside the system folders; the user is
+    // told why, since they followed the link expecting a document.
+    // FIXME: The line and column parameters are not used yet.
+    NSError *error = nil;
+    NSURL *target = [self.openRequest fileURLForRequest:request error:&error];
+    if (!target)
+    {
+        [self.errorPresenter presentError:error];
         return;
     }
     NSDocumentController *c = [NSDocumentController sharedDocumentController];
     [c openDocumentWithContentsOfURL:target display:YES completionHandler:
-     ^(NSDocument *document, BOOL wasOpen, NSError *error) {
-         if (!document || wasOpen || error)
+     ^(NSDocument *document, BOOL wasOpen, NSError *openError) {
+         if (!document)
+         {
+             // This variant of the open call leaves presenting to the caller.
+             BOOL cancelled = [openError.domain isEqual:NSCocoaErrorDomain]
+                 && openError.code == NSUserCancelledError;
+             if (openError && !cancelled)
+                 [self.errorPresenter presentError:openError];
+             return;
+         }
+         if (wasOpen)
              return;
          NSRect frame = [NSScreen mainScreen].visibleFrame;
          for (NSWindowController *wc in document.windowControllers)
              [wc.window setFrame:frame display:YES];
      }];
-
-}
-
-// Validate the attacker-controllable `url` value carried by an x-macdown://
-// open request and, if it is safe to open, return a canonical file:// URL for
-// it. Returns nil (i.e. "reject") when the value is not a local markdown-style
-// file the user could reasonably open. Exposed (via a test-only category) so
-// the guard can be unit-tested in isolation.
-//
-// Rejected inputs include:
-//   - any non-file scheme (http://, https://, ftp://, javascript:, data:, …)
-//   - paths that do not resolve to an existing regular file
-//   - directories
-//   - sensitive system locations (e.g. /etc/passwd, /System, /usr, /bin)
-//   - "../" traversal / symlink tricks that escape into the above
-- (NSURL *)validatedFileURLFromString:(NSString *)urlString
-{
-    if (!urlString.length)
-        return nil;
-
-    NSURL *target = [NSURL URLWithString:urlString];
-    if (!target)
-        return nil;
-
-    // Only local files may be opened via the URL scheme.
-    if (![target.scheme.lowercaseString isEqualToString:@"file"])
-        return nil;
-
-    NSString *path = target.path;
-    if (!path.length)
-        return nil;
-
-    // Resolve "../" traversal and symlinks so the guards below cannot be
-    // bypassed by, e.g., file:///var/folders/../../etc/passwd.
-    NSString *resolved =
-        [[path stringByStandardizingPath] stringByResolvingSymlinksInPath];
-    if (!resolved.length)
-        return nil;
-
-    // The target must be an existing regular file, not a directory.
-    NSFileManager *manager = [NSFileManager defaultManager];
-    BOOL isDirectory = NO;
-    if (![manager fileExistsAtPath:resolved isDirectory:&isDirectory]
-            || isDirectory)
-        return nil;
-
-    // Reject sensitive system locations even when they technically exist.
-    static NSArray *blockedPrefixes = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        blockedPrefixes = @[@"/etc", @"/private/etc", @"/System", @"/usr",
-                            @"/bin", @"/sbin", @"/dev", @"/cores", @"/Library",
-                            @"/private/var/db", @"/private/var/root"];
-    });
-    for (NSString *prefix in blockedPrefixes)
-    {
-        if ([resolved isEqualToString:prefix]
-                || [resolved hasPrefix:[prefix stringByAppendingString:@"/"]])
-            return nil;
-    }
-
-    return [NSURL fileURLWithPath:resolved];
-}
-
-- (NSString *)valueForKey:(NSString *)key fromQueryItems:(NSArray *)queryItems
-{
-    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"name=%@", key];
-    NSURLQueryItem *queryItem = [[queryItems filteredArrayUsingPredicate:predicate] firstObject];
-    return queryItem.value;
 }
 
 - (MPPreferences *)preferences
@@ -296,9 +200,16 @@ NS_INLINE void treat()
 
 - (instancetype)init
 {
+    return [self initWithInfoDictionary:[NSBundle mainBundle].infoDictionary];
+}
+
+- (instancetype)initWithInfoDictionary:(NSDictionary *)info
+{
     self = [super init];
     if (!self)
         return self;
+    _openRequest = [[MPOpenRequest alloc] initWithInfoDictionary:info];
+    _errorPresenter = NSApp;
 
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
     [center addObserver:self selector:@selector(showFirstLaunchTips)
@@ -323,16 +234,6 @@ NS_INLINE void treat()
     [self openPendingPipedContent];
     [self openPendingFiles];
     treat();
-}
-
-
-#pragma mark - SUUpdaterDelegate
-
-- (NSString *)feedURLStringForUpdater:(SUUpdater *)updater
-{
-    if (self.preferences.updateIncludesPreReleases)
-        return [NSBundle mainBundle].infoDictionary[@"SUBetaFeedURL"];
-    return [NSBundle mainBundle].infoDictionary[@"SUFeedURL"];
 }
 
 

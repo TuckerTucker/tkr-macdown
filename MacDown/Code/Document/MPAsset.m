@@ -9,18 +9,19 @@
 #import "MPAsset.h"
 #import <HBHandlebars/HBHandlebars.h>
 #import "MPUtilities.h"
+#import "MPPreviewSchemeHandler.h"
 
 
 NSString * const kMPPlainType = @"text/plain";
 NSString * const kMPCSSType = @"text/css";
 NSString * const kMPJavaScriptType = @"text/javascript";
-NSString * const kMPMathJaxConfigType = @"text/x-mathjax-config";
 
 
 @interface MPAsset ()
 @property (strong) NSURL *url;
 @property (copy, nonatomic) NSString *typeName;
 @property (readonly) NSString *defaultTypeName;
+- (NSMutableDictionary *)templateContext;
 @end
 
 
@@ -57,6 +58,22 @@ NSString * const kMPMathJaxConfigType = @"text/x-mathjax-config";
     return [self initWithURL:nil andType:nil];
 }
 
++ (NSURL *)previewURLForURL:(NSURL *)url
+{
+    if (!url.isFileURL)
+        return url;
+    NSString *path = url.URLByStandardizingPath.path;
+    if (!path.length)
+        return nil;
+    return MPPreviewURLForPath(kMPPreviewAssetScheme, path);
+}
+
+- (NSMutableDictionary *)templateContext
+{
+    return [NSMutableDictionary dictionaryWithObject:self.typeName
+                                              forKey:@"typeName"];
+}
+
 - (NSString *)templateForOption:(MPAssetOption)option
 {
     NSString *reason =
@@ -68,9 +85,7 @@ NSString * const kMPMathJaxConfigType = @"text/x-mathjax-config";
 
 - (NSString *)htmlForOption:(MPAssetOption)option
 {
-    NSMutableDictionary *context =
-        [NSMutableDictionary dictionaryWithObject:self.typeName
-                                           forKey:@"typeName"];
+    NSMutableDictionary *context = [self templateContext];
     switch (option)
     {
         case MPAssetNone:
@@ -87,6 +102,10 @@ NSString * const kMPMathJaxConfigType = @"text/x-mathjax-config";
             // Non-file URLs fallthrough to be treated as full links.
         case MPAssetFullLink:
             context[@"url"] = self.url.absoluteString;
+            break;
+        case MPAssetPreviewLink:
+            context[@"url"] =
+                [[self class] previewURLForURL:self.url].absoluteString;
             break;
     }
 
@@ -131,6 +150,7 @@ NSString * const kMPMathJaxConfigType = @"text/x-mathjax-config";
             }
             // Non-file URLs fallthrough to be treated as full links.
         case MPAssetFullLink:
+        case MPAssetPreviewLink:
             template = (@"<link rel=\"stylesheet\" type=\"{{ typeName }}\" "
                         @"href=\"{{ url }}\">");
             break;
@@ -153,6 +173,21 @@ NSString * const kMPMathJaxConfigType = @"text/x-mathjax-config";
     return [super assetWithURL:url andType:kMPJavaScriptType];
 }
 
++ (instancetype)javaScriptWithURL:(NSURL *)url integrity:(NSString *)integrity
+{
+    MPScript *script = [self javaScriptWithURL:url];
+    script->_integrity = [integrity copy];
+    return script;
+}
+
+- (NSMutableDictionary *)templateContext
+{
+    NSMutableDictionary *context = [super templateContext];
+    if (self.integrity.length)
+        context[@"integrity"] = self.integrity;
+    return context;
+}
+
 - (NSString *)templateForOption:(MPAssetOption)option
 {
     NSString *template = nil;
@@ -169,8 +204,10 @@ NSString * const kMPMathJaxConfigType = @"text/x-mathjax-config";
             }
             // Non-file URLs fall-through to be treated as full links.
         case MPAssetFullLink:
-            template = (@"<script type=\"{{ typeName }}\" src=\"{{ url }}\">"
-                        @"</script>");
+        case MPAssetPreviewLink:
+            template = (@"<script type=\"{{ typeName }}\" src=\"{{ url }}\""
+                        @"{{#if integrity }} integrity=\"{{ integrity }}\""
+                        @" crossorigin=\"anonymous\"{{/if }}></script>");
             break;
     }
     return template;
@@ -183,7 +220,9 @@ NSString * const kMPMathJaxConfigType = @"text/x-mathjax-config";
 
 - (NSString *)htmlForOption:(MPAssetOption)option
 {
-    if (option == MPAssetFullLink)
+    // An embedded script is always inlined. It must therefore never be part
+    // of preview HTML, whose Content-Security-Policy blocks inline scripts.
+    if (option == MPAssetFullLink || option == MPAssetPreviewLink)
         option = MPAssetEmbedded;
     return [super htmlForOption:option];
 }

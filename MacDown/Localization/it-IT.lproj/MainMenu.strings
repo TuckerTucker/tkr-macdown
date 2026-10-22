@@ -43,9 +43,6 @@
 /* Class = "NSMenuItem"; title = "Redo"; ObjectID = "6dh-zS-Vam"; */
 "6dh-zS-Vam.title" = "Ripristina";
 
-/* Class = "NSMenuItem"; title = "Check for Updates…"; ObjectID = "8xL-1V-VPX"; */
-"8xL-1V-VPX.title" = "Controlla aggiornamenti...";
-
 /* Class = "NSMenuItem"; title = "Strikethrough"; ObjectID = "9CN-Qi-Fln"; */
 "9CN-Qi-Fln.title" = "Barrato";
 

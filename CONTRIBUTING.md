@@ -106,6 +106,57 @@ Please rebase your branch to `master` when you submit the pull request. There ca
 
 Under certain circumstances I may wish you to perform further rebasing and/or squashing *after* you submit your pull request, or even perform them myself instead of merging your commits as-is. Don’t worry—you will always get full credits for your contribution.
 
+## Making a signed build
+
+This fork does not distribute updates: the app has no updater, and nothing is published to a feed. When a build is to be shared, `Tools/build_for_release.py` produces one that Gatekeeper accepts: Developer ID signed, notarized and stapled, and zipped. It runs without prompts: every input is a flag or an environment variable (`python3 Tools/build_for_release.py --help`).
+
+### One-time setup
+
+1. Install the dependencies:
+
+    ```sh
+    git submodule update --init --recursive
+    bundle exec pod install
+    python3 -m pip install -r Tools/requirements.txt
+    ```
+
+2. Install a **Developer ID Application** certificate in your login keychain (`security find-identity -v -p codesigning` lists it). Apple Development certificates are refused.
+
+3. Store notarization credentials once. This asks for an app-specific password interactively, so it is the one step a person must do:
+
+    ```sh
+    xcrun notarytool store-credentials macdown-notary \
+        --apple-id you@example.com --team-id TEAMID
+    ```
+
+### Each build
+
+1. Commit everything and tag the commit. The script refuses development versions (such as `0.8.0d12`, built from an untagged commit) and dirty trees, because no commit would reproduce the build:
+
+    ```sh
+    git tag v0.8.1
+    ```
+
+2. Build and sign:
+
+    ```sh
+    export MACDOWN_SIGNING_IDENTITY="Developer ID Application: Name (TEAMID)"
+    python3 Tools/build_for_release.py --notary-profile macdown-notary
+    ```
+
+    The script wipes `Build/`, builds `peg-markdown-highlight` and archives the Release configuration. It then signs inside-out with the hardened runtime and a secure timestamp: the `macdown` command-line tool first, then the app with `Tools/MacDown-release.entitlements`. It checks `codesign --verify --deep --strict`, notarizes and staples the app, checks `spctl --assess`, and zips it with `ditto` as `Build/MacDown-<version>.zip`. Without `--notary-profile` it signs but does not notarize, and Gatekeeper will block the first launch of a downloaded copy.
+
+    The entitlements file turns off library validation. Without that, the hardened runtime would refuse every plug-in not signed by your own team, while MacDown admits plug-ins signed by any Developer ID and checks that signature itself before loading one.
+
+    Exit status 0 means the zip is ready to share; 2 means a precondition refused the build (the message says what to fix); 1 means an external tool failed. Progress is logged as JSON lines on standard error.
+
+### Release tooling tests
+
+```sh
+python3 -m pip install -r Tools/requirements.txt
+python3 -m unittest discover -s Tools/tests
+```
+
 ## More to Come
 
 This style guide is a work in progress. Please feel free to ask if you have any questions about it. I’ll add more rules if there’s ambiguity.

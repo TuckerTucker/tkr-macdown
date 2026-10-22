@@ -23,8 +23,10 @@
 //
 
 #import <XCTest/XCTest.h>
+#import <CommonCrypto/CommonDigest.h>
 #import <hoedown/document.h>
 #import <hoedown/html.h>
+#import "hoedown_html_patch.h"
 #import "MPRenderer.h"
 #import "MPPreferences.h"
 #import "MPRendererStubs.h"
@@ -370,6 +372,209 @@
                   @"Body fragment must contain the paragraph. Got: %@", body);
     XCTAssertTrue([self.delegate.capturedHTML containsString:body],
                   @"The delivered document must embed the parsed body fragment.");
+}
+
+#pragma mark - Preview vs export assets (Wave 3c; TB-7, TM-7)
+
+/// Every <script ...> opening tag in @c html.
+- (NSArray<NSString *> *)scriptTagsInHTML:(NSString *)html
+{
+    NSRegularExpression *regex =
+        [NSRegularExpression regularExpressionWithPattern:@"<script\\b[^>]*>"
+                                                  options:0 error:NULL];
+    NSMutableArray *tags = [NSMutableArray array];
+    for (NSTextCheckingResult *match in
+         [regex matchesInString:html options:0
+                          range:NSMakeRange(0, html.length)])
+        [tags addObject:[html substringWithRange:match.range]];
+    return tags;
+}
+
+- (void)configureMathJaxDocument
+{
+    self.renderer.rendererFlags = 0;
+    self.delegate.extensions = HOEDOWN_EXT_MATH | HOEDOWN_EXT_MATH_EXPLICIT;
+    self.delegate.hasMathJax = YES;
+    [self pinDefaultHTMLTemplate];
+    self.dataSource.markdown = @"Inline $E=mc^2$.\n\n$$x^2$$\n";
+    [self.renderer parseMarkdown:self.dataSource.markdown];
+}
+
+- (void)testPreviewWithMathJaxHasNoInlineScriptAndLocalMathJax
+{
+    [self configureMathJaxDocument];
+    // Exercise every script source the preview can include.
+    self.delegate.hasSyntaxHighlighting = YES;
+    self.delegate.hasMermaid = YES;
+    self.delegate.hasGraphviz = YES;
+    self.renderer.rendererFlags = HOEDOWN_HTML_USE_TASK_LIST;
+    [self.renderer render];
+    NSString *html = self.delegate.capturedHTML;
+
+    NSArray *tags = [self scriptTagsInHTML:html];
+    XCTAssertGreaterThan(tags.count, (NSUInteger)2, @"%@", html);
+    for (NSString *tag in tags)
+    {
+        XCTAssertTrue([tag containsString:@" src=\"x-macdown-asset:///"],
+                      @"Preview scripts must be external, local assets "
+                      @"(the CSP blocks inline and remote scripts): %@", tag);
+    }
+
+    NSString *initTag = nil;
+    NSString *mathjaxTag = nil;
+    for (NSString *tag in tags)
+    {
+        if ([tag containsString:@"/MathJax/init.js\""])
+            initTag = tag;
+        if ([tag containsString:@"/MathJax/es5/tex-mml-chtml.js\""])
+            mathjaxTag = tag;
+    }
+    XCTAssertNotNil(initTag, @"%@", html);
+    XCTAssertNotNil(mathjaxTag, @"%@", html);
+    XCTAssertLessThan([tags indexOfObject:initTag],
+                      [tags indexOfObject:mathjaxTag],
+                      @"The configuration must load before MathJax.");
+
+    XCTAssertFalse([html containsString:@"file:"], @"%@", html);
+    XCTAssertFalse([html containsString:@"cdnjs"], @"%@", html);
+    XCTAssertFalse([html containsString:@"jsdelivr"], @"%@", html);
+    XCTAssertFalse([html containsString:@"x-mathjax-config"], @"%@", html);
+    XCTAssertTrue([html containsString:@"\\(E=mc^2\\)"], @"%@", html);
+    XCTAssertTrue([html containsString:@"\\[x^2\\]"], @"%@", html);
+}
+
+- (void)testPreviewStylesheetsUseAssetScheme
+{
+    self.renderer.rendererFlags = 0;
+    self.delegate.hasSyntaxHighlighting = YES;
+    self.delegate.highlightingThemeName = @"tomorrow";
+    [self pinDefaultHTMLTemplate];
+    [self.renderer parseMarkdown:@"text"];
+    [self.renderer render];
+    NSString *html = self.delegate.capturedHTML;
+
+    XCTAssertTrue([html containsString:@"<link rel=\"stylesheet\""], @"%@",
+                  html);
+    XCTAssertTrue([html containsString:@"href=\"x-macdown-asset:///"], @"%@",
+                  html);
+    XCTAssertFalse([html containsString:@"file:"], @"%@", html);
+}
+
+- (void)testVendoredMathJaxIsInTheAppBundle
+{
+    NSBundle *bundle = [NSBundle mainBundle];
+    XCTAssertNotNil([bundle URLForResource:@"tex-mml-chtml" withExtension:@"js"
+                              subdirectory:@"MathJax/es5"]);
+    XCTAssertNotNil([bundle URLForResource:@"init" withExtension:@"js"
+                              subdirectory:@"MathJax"]);
+    XCTAssertNotNil([bundle URLForResource:@"MathJax_Main-Regular"
+                             withExtension:@"woff"
+                              subdirectory:@"MathJax/es5/output/chtml/fonts/"
+                                           @"woff-v2"]);
+    XCTAssertNotNil([bundle URLForResource:@"noerrors" withExtension:@"js"
+                              subdirectory:@"MathJax/es5/input/tex/"
+                                           @"extensions"]);
+    XCTAssertNil([bundle URLForResource:@"MathJax" withExtension:@"js"
+                           subdirectory:@"MathJax"],
+                 @"MathJax 2 must be gone.");
+}
+
+- (void)testExportWithMathJaxUsesPinnedCDNWithIntegrity
+{
+    [self configureMathJaxDocument];
+    NSString *html = [self.renderer HTMLForExportWithStyles:YES
+                                               highlighting:NO];
+
+    NSString *expected =
+        @"<script type=\"text/javascript\" "
+        @"src=\"https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/"
+        @"tex-mml-chtml.js\" integrity=\"sha384-Wuix6BuhrWbjDBs24bXrjf4ZQ5aF"
+        @"eFWBuKkFekO2t8xFU0iNaLQfp2K6/1Nxveei\" crossorigin=\"anonymous\">"
+        @"</script>";
+    XCTAssertTrue([html containsString:expected], @"%@", html);
+
+    // The configuration is inlined (export must not depend on the bundle)
+    // and precedes MathJax.
+    NSRange config = [html rangeOfString:@"window.MathJax = {"];
+    XCTAssertNotEqual(config.location, NSNotFound, @"%@", html);
+    XCTAssertLessThan(config.location, [html rangeOfString:expected].location);
+    XCTAssertFalse([html containsString:@"x-mathjax-config"], @"%@", html);
+    // No attribute may reference the preview-only scheme (init.js's inlined
+    // comments name it, which is harmless).
+    XCTAssertFalse([html containsString:@"=\"x-macdown-asset:"], @"%@", html);
+    XCTAssertFalse([html containsString:@"cdnjs"], @"%@", html);
+}
+
+- (void)testIntegrityMatchesVendoredMathJax
+{
+    // The export's SRI value must describe the file that is vendored; this
+    // fails when one is updated without the other.
+    NSURL *url = [[NSBundle mainBundle] URLForResource:@"tex-mml-chtml"
+                                         withExtension:@"js"
+                                          subdirectory:@"MathJax/es5"];
+    NSData *data = [NSData dataWithContentsOfURL:url];
+    XCTAssertNotNil(data);
+    unsigned char digest[CC_SHA384_DIGEST_LENGTH];
+    CC_SHA384(data.bytes, (CC_LONG)data.length, digest);
+    NSData *hash = [NSData dataWithBytes:digest length:sizeof(digest)];
+    NSString *sri = [@"sha384-" stringByAppendingString:
+                     [hash base64EncodedStringWithOptions:0]];
+
+    [self configureMathJaxDocument];
+    NSString *html = [self.renderer HTMLForExportWithStyles:NO
+                                               highlighting:NO];
+    NSString *attribute =
+        [NSString stringWithFormat:@"integrity=\"%@\"", sri];
+    XCTAssertTrue([html containsString:attribute], @"%@ not in %@", sri, html);
+}
+
+- (void)testNoCdnjsInAnyOutput
+{
+    [self configureMathJaxDocument];
+    self.delegate.hasSyntaxHighlighting = YES;
+    [self.renderer render];
+    XCTAssertFalse([self.delegate.capturedHTML containsString:@"cdnjs"]);
+    XCTAssertFalse([[self.renderer HTMLForExportWithStyles:YES
+                                              highlighting:YES]
+                    containsString:@"cdnjs"]);
+}
+
+#pragma mark - Title escaping (TM-12, TB-9)
+
+- (void)testTitleIsHTMLEscaped
+{
+    self.renderer.rendererFlags = 0;
+    [self pinDefaultHTMLTemplate];
+    self.dataSource.htmlTitle = @"</title><script>alert(1)</script> & 'x\"";
+    [self.renderer parseMarkdown:@"body"];
+    [self.renderer render];
+
+    NSString *expected =
+        @"<title>&lt;/title&gt;&lt;script&gt;alert(1)&lt;/script&gt; "
+        @"&amp; &#39;x&quot;</title>";
+    NSString *preview = self.delegate.capturedHTML;
+    XCTAssertTrue([preview containsString:expected], @"%@", preview);
+    XCTAssertFalse([preview containsString:@"<script>alert(1)"], @"%@",
+                   preview);
+
+    NSString *exported = [self.renderer HTMLForExportWithStyles:NO
+                                                   highlighting:NO];
+    XCTAssertTrue([exported containsString:expected], @"%@", exported);
+}
+
+- (void)testFrontMatterStyleTitleIsEscapedToo
+{
+    // MPDocument passes a front-matter title through the same data-source
+    // method; escaping is applied where the tag is built, whatever the
+    // title's origin.
+    self.renderer.rendererFlags = 0;
+    [self pinDefaultHTMLTemplate];
+    self.dataSource.htmlTitle = @"A <b>bold</b> title";
+    [self.renderer parseMarkdown:@"body"];
+    [self.renderer render];
+    XCTAssertTrue([self.delegate.capturedHTML containsString:
+                   @"<title>A &lt;b&gt;bold&lt;/b&gt; title</title>"],
+                  @"%@", self.delegate.capturedHTML);
 }
 
 @end

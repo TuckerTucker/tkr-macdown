@@ -19,13 +19,20 @@
 #import "MPAsset.h"
 #import "MPPreferences.h"
 
-// Warning: If the version of MathJax is ever updated, please check the status
-// of https://github.com/mathjax/MathJax/issues/548. If the fix has been merged
-// in to MathJax, then the WebResourceLoadDelegate can be removed from MPDocument
-// and MathJax.js can be removed from this project.
+// MathJax 3 is vendored under Resources/MathJax (see VERSION there for the
+// source, integrity, and what is included). The preview references only that
+// local copy through x-macdown-asset: URLs, so every MathJax request,
+// including the fonts and extensions it loads lazily, is served from the app
+// bundle. Exported HTML is opened outside MacDown and so loads MathJax from
+// jsDelivr, pinned to the exact vendored file with Subresource Integrity.
+// kMPMathJaxCDNIntegrity is the sha384 of es5/tex-mml-chtml.js in the
+// vendored copy; the URL, the integrity, and the vendored files change
+// together.
+static NSString * const kMPMathJaxDirectory = @"MathJax";
 static NSString * const kMPMathJaxCDN =
-    @"https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.3/MathJax.js"
-    @"?config=TeX-AMS-MML_HTMLorMML";
+    @"https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js";
+static NSString * const kMPMathJaxCDNIntegrity =
+    @"sha384-Wuix6BuhrWbjDBs24bXrjf4ZQ5aFeFWBuKkFekO2t8xFU0iNaLQfp2K6/1Nxveei";
 static NSString * const kMPPrismScriptDirectory = @"Prism/components";
 static NSString * const kMPPrismThemeDirectory = @"Prism/themes";
 static NSString * const kMPPrismPluginDirectory = @"Prism/plugins";
@@ -144,6 +151,27 @@ NS_INLINE NSString *MPHTMLFromMarkdown(
     return result;
 }
 
+NS_INLINE NSString *MPHTMLEscapedString(NSString *string)
+{
+    NSMutableString *escaped =
+        [NSMutableString stringWithCapacity:string.length];
+    NSUInteger length = string.length;
+    for (NSUInteger i = 0; i < length; i++)
+    {
+        unichar c = [string characterAtIndex:i];
+        switch (c)
+        {
+            case '&':  [escaped appendString:@"&amp;"];  break;
+            case '<':  [escaped appendString:@"&lt;"];   break;
+            case '>':  [escaped appendString:@"&gt;"];   break;
+            case '"':  [escaped appendString:@"&quot;"]; break;
+            case '\'': [escaped appendString:@"&#39;"];  break;
+            default:   [escaped appendFormat:@"%C", c];  break;
+        }
+    }
+    return escaped;
+}
+
 NS_INLINE NSString *MPGetHTML(
     NSString *title, NSString *body, NSArray *styles, MPAssetOption styleopt,
     NSArray *scripts, MPAssetOption scriptopt)
@@ -179,7 +207,12 @@ NS_INLINE NSString *MPGetHTML(
 
     NSString *titleTag = @"";
     if (title.length)
-        titleTag = [NSString stringWithFormat:@"<title>%@</title>", title];
+    {
+        // The title comes from the file name or front matter, both
+        // document-controlled; it must not be able to break out of <title>.
+        titleTag = [NSString stringWithFormat:@"<title>%@</title>",
+                                              MPHTMLEscapedString(title)];
+    }
 
     NSDictionary *context = @{
         @"title": title ? title : @"",
@@ -206,7 +239,9 @@ NS_INLINE BOOL MPAreNilableStringsEqual(NSString *s1, NSString *s2)
 @property (readonly) NSArray *baseStylesheets;
 @property (readonly) NSArray *prismStylesheets;
 @property (readonly) NSArray *prismScripts;
-@property (readonly) NSArray *mathjaxScripts;
+@property (readonly) NSURL *mathjaxInitScriptURL;
+@property (readonly) NSArray *previewMathJaxScripts;
+@property (readonly) NSArray *exportMathJaxScripts;
 @property (readonly) NSArray *mermaidStylesheets;
 @property (readonly) NSArray *mermaidScripts;
 @property (readonly) NSArray *graphvizScripts;
@@ -419,19 +454,35 @@ NS_INLINE void MPFreeHTMLRenderer(hoedown_renderer *htmlRenderer)
     return scripts;
 }
 
-- (NSArray *)mathjaxScripts
+- (NSURL *)mathjaxInitScriptURL
 {
-    NSMutableArray *scripts = [NSMutableArray array];
-    NSURL *url = [NSURL URLWithString:kMPMathJaxCDN];
-    NSBundle *bundle = [NSBundle mainBundle];
-    MPEmbeddedScript *script =
-        [MPEmbeddedScript assetWithURL:[bundle URLForResource:@"init"
-                                                withExtension:@"js"
-                                                 subdirectory:@"MathJax"]
-                               andType:kMPMathJaxConfigType];
-    [scripts addObject:script];
-    [scripts addObject:[MPScript javaScriptWithURL:url]];
-    return scripts;
+    return [[NSBundle mainBundle] URLForResource:@"init" withExtension:@"js"
+                                    subdirectory:kMPMathJaxDirectory];
+}
+
+// The in-app preview: configuration and MathJax are both external scripts
+// from the bundle (the preview's CSP blocks inline and remote scripts).
+- (NSArray *)previewMathJaxScripts
+{
+    NSString *dir = [kMPMathJaxDirectory stringByAppendingPathComponent:@"es5"];
+    NSURL *mathjax = [[NSBundle mainBundle] URLForResource:@"tex-mml-chtml"
+                                             withExtension:@"js"
+                                              subdirectory:dir];
+    return @[[MPScript javaScriptWithURL:self.mathjaxInitScriptURL],
+             [MPScript javaScriptWithURL:mathjax]];
+}
+
+// Exported HTML: configuration inlined (it must not depend on the app bundle)
+// and MathJax from the CDN with Subresource Integrity.
+- (NSArray *)exportMathJaxScripts
+{
+    MPEmbeddedScript *config =
+        [MPEmbeddedScript assetWithURL:self.mathjaxInitScriptURL
+                               andType:kMPJavaScriptType];
+    MPScript *mathjax =
+        [MPScript javaScriptWithURL:[NSURL URLWithString:kMPMathJaxCDN]
+                          integrity:kMPMathJaxCDNIntegrity];
+    return @[config, mathjax];
 }
 
 - (NSArray *)mermaidStylesheets
@@ -526,7 +577,7 @@ NS_INLINE void MPFreeHTMLRenderer(hoedown_renderer *htmlRenderer)
         }
     }
     if ([d rendererHasMathJax:self])
-        [scripts addObjectsFromArray:self.mathjaxScripts];
+        [scripts addObjectsFromArray:self.previewMathJaxScripts];
     return scripts;
 }
 
@@ -653,10 +704,12 @@ NS_INLINE void MPFreeHTMLRenderer(hoedown_renderer *htmlRenderer)
 {
     id<MPRendererDelegate> delegate = self.delegate;
 
+    // Preview HTML: every bundled/user asset is referenced through the
+    // preview's asset scheme, and no script is inlined.
     NSString *title = [self.dataSource rendererHTMLTitle:self];
     NSString *html = MPGetHTML(
-        title, self.currentHtml, self.stylesheets, MPAssetFullLink,
-        self.scripts, MPAssetFullLink);
+        title, self.currentHtml, self.stylesheets, MPAssetPreviewLink,
+        self.scripts, MPAssetPreviewLink);
     [delegate renderer:self didProduceHTMLOutput:html];
 
     self.styleName = [delegate rendererStyleName:self];
@@ -700,7 +753,7 @@ NS_INLINE void MPFreeHTMLRenderer(hoedown_renderer *htmlRenderer)
     if ([self.delegate rendererHasMathJax:self])
     {
         scriptsOption = MPAssetEmbedded;
-        [scripts addObjectsFromArray:self.mathjaxScripts];
+        [scripts addObjectsFromArray:self.exportMathJaxScripts];
     }
 
     NSString *title = [self.dataSource rendererHTMLTitle:self];

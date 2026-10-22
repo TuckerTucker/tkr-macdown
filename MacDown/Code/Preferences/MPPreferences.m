@@ -44,6 +44,7 @@ static NSString * const kMPDefaultHtmlStyleName = @"GitHub2";
         return nil;
 
     [self cleanupObsoleteAutosaveValues];
+    [self cleanupObsoleteKeys];
 
     NSString *version =
         [NSBundle mainBundle].infoDictionary[@"CFBundleVersion"];
@@ -72,7 +73,6 @@ static NSString * const kMPDefaultHtmlStyleName = @"GitHub2";
 
 @dynamic firstVersionInstalled;
 @dynamic latestVersionInstalled;
-@dynamic updateIncludesPreReleases;
 @dynamic supressesUntitledDocumentOnLaunch;
 @dynamic createFileForLinkTarget;
 
@@ -221,6 +221,24 @@ static NSString * const kMPDefaultHtmlStyleName = @"GitHub2";
     }
     for (NSString *key in keysToRemove)
         [defaults removeObjectForKey:key];
+}
+
+// Settings nothing reads any more: the pre-release choice, and what the
+// updater stored for itself (its keys start with SU) while MacDown shipped
+// with one. Kept, they would
+// be data with no purpose.
+- (void)cleanupObsoleteKeys
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    [defaults removeObjectForKey:@"updateIncludesPreReleases"];
+    NSString *domain = [NSBundle mainBundle].bundleIdentifier;
+    NSDictionary *stored = domain ? [defaults persistentDomainForName:domain]
+                                  : nil;
+    for (NSString *key in stored)
+    {
+        if ([key hasPrefix:@"SU"])
+            [defaults removeObjectForKey:key];
+    }
 }
 
 /** Load app-default preferences on first launch.

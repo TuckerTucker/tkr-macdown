@@ -11,5 +11,4 @@
 
 @interface MPGeneralPreferencesViewController : MPPreferencesViewController
     <MASPreferencesViewController>
-
 @end

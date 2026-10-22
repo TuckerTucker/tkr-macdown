@@ -4,9 +4,6 @@
 /* Class = "NSButtonCell"; title = "Put editor on the right"; ObjectID = "bUn-PQ-5Ez"; */
 "bUn-PQ-5Ez.title" = "Přesunout editor vpravo";
 
-/* Class = "NSBox"; title = "Update"; ObjectID = "eLn-fW-Agu"; */
-"eLn-fW-Agu.title" = "Aktualizovat";
-
 /* Class = "NSButtonCell"; title = "Automatically create files for link targets"; ObjectID = "hpF-zP-3cM"; */
 "hpF-zP-3cM.title" = "Automaticky vytvářet odkazy na neexistující soubory";
 
@@ -21,7 +18,4 @@
 
 /* Class = "NSButtonCell"; title = "Show word count"; ObjectID = "oeW-bF-ybW"; */
 "oeW-bF-ybW.title" = "Zobrazit počet slov";
-
-/* Class = "NSButtonCell"; title = "Include pre-releases"; ObjectID = "vbz-fv-8BX"; */
-"vbz-fv-8BX.title" = "Včetně testovacích verzí";
 
