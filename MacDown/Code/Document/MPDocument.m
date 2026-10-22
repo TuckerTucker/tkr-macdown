@@ -165,6 +165,19 @@ NS_INLINE NSColor *MPGetWebViewBackgroundColor(WebView *webview)
         flags |= HOEDOWN_HTML_HARD_WRAP;
     if (self.htmlCodeBlockAccessory == MPCodeBlockAccessoryCustom)
         flags |= HOEDOWN_HTML_BLOCKCODE_INFORMATION;
+
+    // INTERIM SECURITY MITIGATION (GitHub issues #1050, #372).
+    // The preview WebView is loaded with JavaScript enabled and a file://
+    // base URL, so any raw HTML that hoedown passes through unescaped — e.g. a
+    // document-supplied <script> — executes with local-file privileges (RCE).
+    // HOEDOWN_HTML_ESCAPE makes the renderer escape inline raw HTML (so
+    // <script> renders as inert text) and drop raw block-level HTML, neutering
+    // the published PoCs while leaving normal Markdown rendering intact.
+    // This is always-on and deliberately not user-configurable: it is a
+    // security floor. The proper fix (WKWebView with origin isolation) is
+    // Wave 3; until then raw HTML authored in Markdown is escaped, not rendered.
+    flags |= HOEDOWN_HTML_ESCAPE;
+
     return flags;
 }
 @end
@@ -2007,8 +2020,8 @@ current file somewhere to enable this feature.", \
         NSInvocation *invocation = (__bridge NSInvocation *)context;
         if ([invocation isKindOfClass:[NSInvocation class]])
         {
-            [invocation setArgument:&doc atIndex:0];
-            [invocation setArgument:&ok atIndex:1];
+            [invocation setArgument:&doc atIndex:2];
+            [invocation setArgument:&ok atIndex:3];
             [invocation invoke];
         }
     }
