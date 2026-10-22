@@ -1,4 +1,4 @@
-"""Inside-out Developer ID signing of the app and Sparkle's nested code."""
+"""Inside-out Developer ID signing of the app and the code nested in it."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 import support
-from sparkle_release import (
+from release_steps import (
     codesign_command,
     find_nested_code,
     is_mach_o,
@@ -23,9 +23,11 @@ class SigningOrderTests(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.app = support.build_app_tree(Path(self._tmp.name))
+        self.tool = (self.app / 'Contents' / 'SharedSupport' / 'bin'
+                     / 'macdown')
         self.framework = (self.app / 'Contents' / 'Frameworks'
-                          / 'Sparkle.framework')
-        self.version = self.framework / 'Versions' / 'B'
+                          / 'Kit.framework')
+        self.version = self.framework / 'Versions' / 'A'
         self.entitlements = Path(self._tmp.name) / 'release.entitlements'
 
     def plan_paths(self) -> list[Path]:
@@ -34,10 +36,9 @@ class SigningOrderTests(unittest.TestCase):
 
     def test_plan_signs_exactly_the_nested_code_then_the_app(self) -> None:
         self.assertEqual(set(self.plan_paths()), {
-            self.version / 'XPCServices' / 'Downloader.xpc',
-            self.version / 'XPCServices' / 'Installer.xpc',
-            self.version / 'Autoupdate',
-            self.version / 'Updater.app',
+            self.tool,
+            self.version / 'XPCServices' / 'Service.xpc',
+            self.version / 'Helper.app',
             self.framework,
             self.app,
         })
@@ -45,11 +46,10 @@ class SigningOrderTests(unittest.TestCase):
     def test_helpers_before_framework_before_app(self) -> None:
         order = self.plan_paths()
         framework_at = order.index(self.framework)
-        for helper in (self.version / 'XPCServices' / 'Downloader.xpc',
-                       self.version / 'XPCServices' / 'Installer.xpc',
-                       self.version / 'Autoupdate',
-                       self.version / 'Updater.app'):
+        for helper in (self.version / 'XPCServices' / 'Service.xpc',
+                       self.version / 'Helper.app'):
             self.assertLess(order.index(helper), framework_at, helper)
+        self.assertLess(order.index(self.tool), order.index(self.app))
         self.assertEqual(order[-1], self.app)
 
     def test_every_item_follows_everything_it_contains(self) -> None:
@@ -62,11 +62,11 @@ class SigningOrderTests(unittest.TestCase):
 
     def test_symlinks_and_main_executables_are_not_signed(self) -> None:
         paths = self.plan_paths()
-        self.assertNotIn(self.framework / 'Autoupdate', paths)
-        self.assertNotIn(self.framework / 'Updater.app', paths)
-        self.assertNotIn(self.version / 'Sparkle', paths)
+        self.assertNotIn(self.framework / 'Kit', paths)
+        self.assertNotIn(self.framework / 'Helper.app', paths)
+        self.assertNotIn(self.version / 'Kit', paths)
         self.assertNotIn(
-            self.version / 'Updater.app' / 'Contents' / 'MacOS' / 'Updater',
+            self.version / 'Helper.app' / 'Contents' / 'MacOS' / 'Helper',
             paths)
         self.assertNotIn(self.app / 'Contents' / 'MacOS' / 'MacDown', paths)
         self.assertNotIn(
@@ -84,11 +84,11 @@ class SigningOrderTests(unittest.TestCase):
 class CodesignCommandTests(unittest.TestCase):
 
     def test_nested_item_keeps_its_entitlements(self) -> None:
-        command = codesign_command(IDENTITY, Path('/x/Downloader.xpc'))
+        command = codesign_command(IDENTITY, Path('/x/Service.xpc'))
         self.assertEqual(command, [
             'codesign', '--force', '--sign', IDENTITY, '--options', 'runtime',
             '--timestamp', '--preserve-metadata=entitlements',
-            '/x/Downloader.xpc'])
+            '/x/Service.xpc'])
 
     def test_app_gets_release_entitlements(self) -> None:
         command = codesign_command(IDENTITY, Path('/x/MacDown.app'),

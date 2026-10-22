@@ -90,7 +90,7 @@
 		60147AD6AB348E26B2566A92 /* MPMathJaxOfflineTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 15757EBEBFE68DE91CF57647 /* MPMathJaxOfflineTests.m */; };
 		770BB49E962A302D0715A6A5 /* libPods-MacDown.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 42F926DD38559C7CEDB6E42F /* libPods-MacDown.a */; };
 		80E1663C0D86597B09023B77 /* MPRendererStubs.m in Sources */ = {isa = PBXBuildFile; fileRef = F7D26DA8A74237E5AC96A8B8 /* MPRendererStubs.m */; };
-		84AF0F5B5A175049A5384328 /* MPUpdaterConfigurationTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 07DA2BD066BBC2D2C7858DFF /* MPUpdaterConfigurationTests.m */; };
+		84AF0F5B5A175049A5384328 /* MPNoUpdaterTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 07DA2BD066BBC2D2C7858DFF /* MPNoUpdaterTests.m */; };
 		852D523C1E260A6400BA7162 /* MPTerminalPreferencesViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 852D523A1E260A6400BA7162 /* MPTerminalPreferencesViewController.m */; };
 		85E24E5C1E5019C00056E696 /* MPToolbarController.m in Sources */ = {isa = PBXBuildFile; fileRef = 85E24E5B1E5019C00056E696 /* MPToolbarController.m */; };
 		8CA2432B0F8AD93882B3FD9D /* MPDocumentTests.m in Sources */ = {isa = PBXBuildFile; fileRef = CDF65BF66FFF672499B6F5B7 /* MPDocumentTests.m */; };
@@ -172,7 +172,7 @@
 
 /* Begin PBXFileReference section */
 		05D17E338DEE0BF4B32591DD /* MPErrorPresenting.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = MPErrorPresenting.h; path = MPErrorPresenting.h; sourceTree = "<group>"; };
-		07DA2BD066BBC2D2C7858DFF /* MPUpdaterConfigurationTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPUpdaterConfigurationTests.m; sourceTree = "<group>"; };
+		07DA2BD066BBC2D2C7858DFF /* MPNoUpdaterTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPNoUpdaterTests.m; sourceTree = "<group>"; };
 		0A522E6224E5AF7DD0E924E3 /* MPToolbarControllerTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPToolbarControllerTests.m; sourceTree = "<group>"; };
 		0A6382AA9E5C8EE4C37D231D /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
 		0D0EC0DE9FEA22F962083921 /* Pods-MacDownTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MacDownTests.release.xcconfig"; path = "Pods/Target Support Files/Pods-MacDownTests/Pods-MacDownTests.release.xcconfig"; sourceTree = "<group>"; };
@@ -932,7 +932,7 @@
 				15757EBEBFE68DE91CF57647 /* MPMathJaxOfflineTests.m */,
 				8381CDC1CEFBD3C9DD01B8E2 /* MPDocumentPreviewTests.m */,
 				0EF4F4A7810E79B7083F0BFE /* MPPlugInTests.m */,
-				07DA2BD066BBC2D2C7858DFF /* MPUpdaterConfigurationTests.m */,
+				07DA2BD066BBC2D2C7858DFF /* MPNoUpdaterTests.m */,
 				868E71012C210D6F35BCCBED /* MPScrollSyncMapTests.m */,
 			);
 			path = MacDownTests;
@@ -999,7 +999,6 @@
 				1FA6DE1F1941CC9E000409FB /* Resources */,
 				1F8A82A81952F19B00B6BF69 /* Update Build Number */,
 				905EF1B6196164E300FC3CE9 /* Copy Command Line Utility */,
-				C5B8C48273E72106885CA8C4 /* [CP] Embed Pods Frameworks */,
 				1E02F0A95AAEBCEF65493F5F /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
@@ -1272,24 +1271,6 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		C5B8C48273E72106885CA8C4 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-MacDown/Pods-MacDown-frameworks.sh",
-				"${PODS_ROOT}/Sparkle/Sparkle.framework",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Sparkle.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-MacDown/Pods-MacDown-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 		E7FD807B2106CA8F0087F0A8 /* Transpile Styles */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -1377,7 +1358,7 @@
 				60147AD6AB348E26B2566A92 /* MPMathJaxOfflineTests.m in Sources */,
 				EDACEE4053502AFBBFC66D8A /* MPDocumentPreviewTests.m in Sources */,
 				F9E8DE27C037F68F20F71D0A /* MPPlugInTests.m in Sources */,
-				84AF0F5B5A175049A5384328 /* MPUpdaterConfigurationTests.m in Sources */,
+				84AF0F5B5A175049A5384328 /* MPNoUpdaterTests.m in Sources */,
 				AFDB11990F1ED7B370F3ED06 /* MPScrollSyncMapTests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1868,7 +1849,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.uranusjr.${PRODUCT_NAME:rfc1034identifier:lower}-debug";
 				PRODUCT_NAME = MacDown;
 				SDKROOT = macosx;
-				SPARKLE_PUBLIC_ED_KEY = "";
 				WRAPPER_EXTENSION = app;
 			};
 			name = Debug;
@@ -1887,7 +1867,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.uranusjr.${PRODUCT_NAME:rfc1034identifier:lower}";
 				PRODUCT_NAME = MacDown;
 				SDKROOT = macosx;
-				SPARKLE_PUBLIC_ED_KEY = "";
 				WRAPPER_EXTENSION = app;
 			};
 			name = Release;

@@ -5,7 +5,6 @@ from __future__ import annotations
 import contextlib
 import io
 import unittest
-from pathlib import Path
 
 import support
 from build_for_release import parse_args
@@ -33,34 +32,27 @@ class ParseArgsTests(unittest.TestCase):
 
     def test_flags_resolve(self) -> None:
         options = parse_args(
-            ['--identity', IDENTITY, '--beta', '--notary-profile', 'notary',
-             '--public-ed-key', ' KEY= ', '--ed-key-file', 'k.pem'], {})
+            ['--identity', IDENTITY, '--notary-profile', 'notary'], {})
         self.assertEqual(options.identity, IDENTITY)
-        self.assertTrue(options.beta)
         self.assertEqual(options.notary_profile, 'notary')
-        self.assertEqual(options.public_ed_key, 'KEY=')
-        self.assertEqual(options.ed_key_file, Path('k.pem'))
-        self.assertEqual(options.repository, 'TuckerTucker/tkr-macdown')
-        self.assertEqual(options.appcast, support.REPO_ROOT / 'appcast.xml')
+        self.assertEqual(options.entitlements, support.TOOLS_DIR
+                         / 'MacDown-release.entitlements')
 
     def test_environment_supplies_defaults(self) -> None:
         options = parse_args([], {
             'MACDOWN_SIGNING_IDENTITY': IDENTITY,
-            'SPARKLE_PUBLIC_ED_KEY': 'KEY=',
-            'SPARKLE_ED_KEY_FILE': '/secure/ed.key',
             'MACDOWN_NOTARY_PROFILE': 'notary',
         })
         self.assertEqual(options.identity, IDENTITY)
-        self.assertEqual(options.public_ed_key, 'KEY=')
-        self.assertEqual(options.ed_key_file, Path('/secure/ed.key'))
         self.assertEqual(options.notary_profile, 'notary')
-        self.assertFalse(options.beta)
 
-    def test_defaults_skip_notarization_and_use_keychain(self) -> None:
+    def test_defaults_skip_notarization(self) -> None:
         options = parse_args(['--identity', IDENTITY], {})
         self.assertIsNone(options.notary_profile)
-        self.assertIsNone(options.ed_key_file)
-        self.assertIsNone(options.public_ed_key)
+
+    def test_update_options_are_gone(self) -> None:
+        self.rejects(['--identity', IDENTITY, '--beta'], {})
+        self.rejects(['--identity', IDENTITY, '--public-ed-key', 'K='], {})
 
     def test_flag_overrides_environment(self) -> None:
         options = parse_args(['--identity', IDENTITY],

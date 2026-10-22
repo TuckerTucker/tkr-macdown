@@ -31,9 +31,6 @@
 /* Class = "NSMenuItem"; title = "Export"; ObjectID = "5mp-ev-1el"; */
 "5mp-ev-1el.title" = "Exportovať";
 
-/* Class = "NSMenuItem"; title = "Check for Updates…"; ObjectID = "8xL-1V-VPX"; */
-"8xL-1V-VPX.title" = "Skontrolovať aktualizácie...";
-
 /* Class = "NSMenuItem"; title = "Strikethrough"; ObjectID = "9CN-Qi-Fln"; */
 "9CN-Qi-Fln.title" = "Preškrtnuté";
 

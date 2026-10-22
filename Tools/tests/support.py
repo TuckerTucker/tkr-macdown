@@ -6,7 +6,6 @@ Importing this module puts ``Tools/`` on ``sys.path`` so tests run with
 
 from __future__ import annotations
 
-import base64
 import logging
 import os
 import plistlib
@@ -45,31 +44,29 @@ def write_plist(path: Path, data: dict[str, Any]) -> Path:
     return path
 
 
-def app_info(public_ed_key: Any = '',
-             short_version: str = '0.8.1',
+def app_info(short_version: str = '0.8.1',
              bundle_version: str = '1300',
              build_version: str = 'v0.8.1') -> dict[str, Any]:
     """An Info.plist dictionary shaped like the built MacDown.app's."""
-    info: dict[str, Any] = {
+    return {
         'CFBundleExecutable': 'MacDown',
         'CFBundleShortVersionString': short_version,
         'CFBundleVersion': bundle_version,
         'CFBundleBuildVersion': build_version,
         'LSMinimumSystemVersion': '11.0',
     }
-    if public_ed_key is not None:
-        info['SUPublicEDKey'] = public_ed_key
-    return info
 
 
 def build_app_tree(root: Path,
                    info: Optional[dict[str, Any]] = None) -> Path:
-    """Create a MacDown.app laid out like a real build with Sparkle 2.9.
+    """Create a MacDown.app laid out like a real build.
 
-    The layout mirrors the shipped ``Sparkle.framework``: a versioned
-    framework (``Versions/B`` with a ``Current`` symlink and top-level
-    symlinks), the ``Autoupdate`` tool, ``Updater.app``, and the
-    ``Downloader``/``Installer`` XPC services, plus non-code resources.
+    A real build nests one standalone tool, ``SharedSupport/bin/macdown``.
+    The tree also holds a versioned framework with a helper app and an XPC
+    service inside it, laid out the way Xcode embeds one (``Versions/A`` with
+    a ``Current`` symlink and top-level symlinks), so the inside-out order
+    and the symlink handling are exercised on the shapes signing must get
+    right. Non-code resources sit alongside.
 
     Args:
         root: Directory to create the app in.
@@ -82,31 +79,24 @@ def build_app_tree(root: Path,
     contents = app / 'Contents'
     write_plist(contents / 'Info.plist', info or app_info())
     write_macho(contents / 'MacOS' / 'MacDown')
+    write_macho(contents / 'SharedSupport' / 'bin' / 'macdown')
     (contents / 'Resources').mkdir(parents=True)
     (contents / 'Resources' / 'Styles.css').write_text('body {}\n')
 
-    framework = contents / 'Frameworks' / 'Sparkle.framework'
-    version = framework / 'Versions' / 'B'
-    write_macho(version / 'Sparkle')
-    write_macho(version / 'Autoupdate')
+    framework = contents / 'Frameworks' / 'Kit.framework'
+    version = framework / 'Versions' / 'A'
+    write_macho(version / 'Kit')
     write_plist(version / 'Resources' / 'Info.plist',
-                {'CFBundleExecutable': 'Sparkle'})
-    updater = version / 'Updater.app'
-    write_plist(updater / 'Contents' / 'Info.plist',
-                {'CFBundleExecutable': 'Updater'})
-    write_macho(updater / 'Contents' / 'MacOS' / 'Updater')
-    for service in ('Downloader', 'Installer'):
-        xpc = version / 'XPCServices' / (service + '.xpc')
-        write_plist(xpc / 'Contents' / 'Info.plist',
-                    {'CFBundleExecutable': service})
-        write_macho(xpc / 'Contents' / 'MacOS' / service)
-    os.symlink('B', framework / 'Versions' / 'Current')
-    for name in ('Sparkle', 'Autoupdate', 'Updater.app', 'XPCServices',
-                 'Resources'):
+                {'CFBundleExecutable': 'Kit'})
+    helper = version / 'Helper.app'
+    write_plist(helper / 'Contents' / 'Info.plist',
+                {'CFBundleExecutable': 'Helper'})
+    write_macho(helper / 'Contents' / 'MacOS' / 'Helper')
+    xpc = version / 'XPCServices' / 'Service.xpc'
+    write_plist(xpc / 'Contents' / 'Info.plist',
+                {'CFBundleExecutable': 'Service'})
+    write_macho(xpc / 'Contents' / 'MacOS' / 'Service')
+    os.symlink('A', framework / 'Versions' / 'Current')
+    for name in ('Kit', 'Helper.app', 'XPCServices', 'Resources'):
         os.symlink('Versions/Current/' + name, framework / name)
     return app
-
-
-def b64(raw: bytes) -> str:
-    """Base64-encode bytes to text."""
-    return base64.b64encode(raw).decode('ascii')

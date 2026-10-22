@@ -1,9 +1,6 @@
 /* Class = "NSButtonCell"; title = "Put editor on the right"; ObjectID = "bUn-PQ-5Ez"; */
 "bUn-PQ-5Ez.title" = "Pane redaktor paremale";
 
-/* Class = "NSBox"; title = "Update"; ObjectID = "eLn-fW-Agu"; */
-"eLn-fW-Agu.title" = "Uuenda";
-
 /* Class = "NSBox"; title = "Behavior"; ObjectID = "Nma-PL-ZvX"; */
 "Nma-PL-ZvX.title" = "Käitumine";
 

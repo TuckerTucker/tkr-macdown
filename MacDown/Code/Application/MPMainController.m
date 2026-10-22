@@ -8,9 +8,6 @@
 
 #import "MPMainController.h"
 #import <MASPreferences/MASPreferencesWindowController.h>
-#import <Sparkle/SPUStandardUpdaterController.h>
-#import <Sparkle/SPUUpdater.h>
-#import <Sparkle/SPUUpdaterDelegate.h>
 #import "MPGlobals.h"
 #import "MPUtilities.h"
 #import "NSDocumentController+Document.h"
@@ -95,13 +92,8 @@ NS_INLINE void treat()
 }
 
 
-NSString * const MPUpdaterBetaChannel = @"beta";
-
-
-@interface MPMainController () <SPUUpdaterDelegate>
+@interface MPMainController ()
 @property (readonly) NSWindowController *preferencesWindowController;
-@property (readonly) SPUStandardUpdaterController *updaterController;
-@property (readonly) NSDictionary *info;
 @property (readonly) MPOpenRequest *openRequest;
 @end
 
@@ -171,11 +163,8 @@ NSString * const MPUpdaterBetaChannel = @"beta";
 {
     if (!_preferencesWindowController)
     {
-        MPGeneralPreferencesViewController *general =
-            [[MPGeneralPreferencesViewController alloc] init];
-        general.updatesUnavailableReason = self.updatesUnavailableReason;
         NSArray *vcs = @[
-            general,
+            [[MPGeneralPreferencesViewController alloc] init],
             [[MPMarkdownPreferencesViewController alloc] init],
             [[MPEditorPreferencesViewController alloc] init],
             [[MPHtmlPreferencesViewController alloc] init],
@@ -206,31 +195,6 @@ NSString * const MPUpdaterBetaChannel = @"beta";
     MPOpenBundledFile(@"contribute", @"md");
 }
 
-- (IBAction)checkForUpdates:(id)sender
-{
-    [self.updaterController checkForUpdates:sender];
-}
-
-- (NSString *)updatesUnavailableReason
-{
-    if ([MPMainController isUpdaterConfiguredWithInfoDictionary:self.info])
-        return nil;
-    return NSLocalizedString(
-        @"This copy of MacDown can't check for updates: it was built without "
-        @"the key that verifies downloads. Get new versions from the MacDown "
-        @"releases page.",
-        @"Why Check for Updates is unavailable");
-}
-
-+ (BOOL)isUpdaterConfiguredWithInfoDictionary:(NSDictionary *)info
-{
-    id key = info[@"SUPublicEDKey"];
-    if (![key isKindOfClass:[NSString class]])
-        return NO;
-    NSCharacterSet *spaces = [NSCharacterSet whitespaceAndNewlineCharacterSet];
-    return [key stringByTrimmingCharactersInSet:spaces].length > 0;
-}
-
 
 #pragma mark - Override
 
@@ -244,7 +208,6 @@ NSString * const MPUpdaterBetaChannel = @"beta";
     self = [super init];
     if (!self)
         return self;
-    _info = [info copy];
     _openRequest = [[MPOpenRequest alloc] initWithInfoDictionary:info];
     _errorPresenter = NSApp;
 
@@ -253,18 +216,6 @@ NSString * const MPUpdaterBetaChannel = @"beta";
                    name:MPDidDetectFreshInstallationNotification
                  object:self.preferences];
     [self copyFiles];
-
-    // The updater is started only when the build carries an update signing
-    // key. Without one Sparkle would refuse to start and put up a modal
-    // "contact the developer" alert on every launch; instead updates stay
-    // off (fail closed) and "Check for Updates..." is disabled.
-    _updaterController =
-        [[SPUStandardUpdaterController alloc] initWithStartingUpdater:NO
-                                                      updaterDelegate:self
-                                                   userDriverDelegate:nil];
-    // Why it is off is shown on the menu item and in Preferences.
-    if ([MPMainController isUpdaterConfiguredWithInfoDictionary:info])
-        [_updaterController startUpdater];
     return self;
 }
 
@@ -283,37 +234,6 @@ NSString * const MPUpdaterBetaChannel = @"beta";
     [self openPendingPipedContent];
     [self openPendingFiles];
     treat();
-}
-
-
-#pragma mark - NSMenuItemValidation
-
-- (BOOL)validateMenuItem:(NSMenuItem *)item
-{
-    // Not started (no signing key) means canCheckForUpdates is NO, so the
-    // item is shown greyed out rather than failing when chosen, and its tool
-    // tip says why.
-    if (item.action == @selector(checkForUpdates:))
-    {
-        item.toolTip = self.updatesUnavailableReason;
-        return self.updaterController.updater.canCheckForUpdates;
-    }
-    return YES;
-}
-
-
-#pragma mark - SPUUpdaterDelegate
-
-// The updater is an SPUStandardUpdaterController owned by this controller,
-// which is its updaterDelegate. It reads the one feed, SUFeedURL, over
-// HTTPS, and accepts an update only with a valid EdDSA signature
-// (SUPublicEDKey). Pre-releases are the feed's items in the beta channel;
-// items without a channel are offered to everyone.
-- (NSSet<NSString *> *)allowedChannelsForUpdater:(SPUUpdater *)updater
-{
-    if (self.preferences.updateIncludesPreReleases)
-        return [NSSet setWithObject:MPUpdaterBetaChannel];
-    return [NSSet set];
 }
 
 

@@ -4,9 +4,6 @@
 /* Class = "NSButtonCell"; title = "Put editor on the right"; ObjectID = "bUn-PQ-5Ez"; */
 "bUn-PQ-5Ez.title" = "Editörü sağa yerleştir";
 
-/* Class = "NSBox"; title = "Update"; ObjectID = "eLn-fW-Agu"; */
-"eLn-fW-Agu.title" = "Güncelle";
-
 /* Class = "NSBox"; title = "Behavior"; ObjectID = "Nma-PL-ZvX"; */
 "Nma-PL-ZvX.title" = "Davranış";
 

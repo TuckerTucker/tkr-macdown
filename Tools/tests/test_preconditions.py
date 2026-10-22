@@ -5,40 +5,11 @@ from __future__ import annotations
 import unittest
 
 import support
-from sparkle_release import (
+from release_steps import (
     ReleaseError,
     read_bundle_info,
-    require_public_ed_key,
     require_release_version,
 )
-
-KEY = b'\x07' * 32
-
-
-class PublicKeyTests(unittest.TestCase):
-
-    def refuses(self, value: object) -> None:
-        info = read_bundle_info(support.app_info(public_ed_key=value))
-        with self.assertRaisesRegex(ReleaseError, 'SUPublicEDKey'):
-            require_public_ed_key(info)
-
-    def test_empty_key_is_refused(self) -> None:
-        # What $(SPARKLE_PUBLIC_ED_KEY) expands to when the setting is unset.
-        self.refuses('')
-
-    def test_blank_missing_and_non_string_keys_are_refused(self) -> None:
-        self.refuses(' \n\t')
-        self.refuses(None)
-        self.refuses(42)
-
-    def test_malformed_and_wrong_length_keys_are_refused(self) -> None:
-        self.refuses('not base64!')
-        self.refuses(support.b64(b'\x07' * 31))
-
-    def test_valid_key_is_returned_raw(self) -> None:
-        info = read_bundle_info(support.app_info(
-            public_ed_key=support.b64(KEY)))
-        self.assertEqual(require_public_ed_key(info), KEY)
 
 
 class VersionTests(unittest.TestCase):
@@ -61,10 +32,11 @@ class VersionTests(unittest.TestCase):
 
 class BundleInfoTests(unittest.TestCase):
 
-    def test_missing_minimum_system_version_is_refused(self) -> None:
+    def test_missing_version_is_refused(self) -> None:
         plist = support.app_info()
-        del plist['LSMinimumSystemVersion']
-        with self.assertRaisesRegex(ReleaseError, 'LSMinimumSystemVersion'):
+        del plist['CFBundleShortVersionString']
+        with self.assertRaisesRegex(ReleaseError,
+                                    'CFBundleShortVersionString'):
             read_bundle_info(plist)
 
 

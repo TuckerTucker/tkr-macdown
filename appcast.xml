@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-  <channel>
-    <title>MacDown</title>
-    <link>https://github.com/TuckerTucker/tkr-macdown</link>
-    <description>Updates for MacDown. Stable releases carry no channel; pre-releases carry sparkle:channel beta. Items are added by Tools/build_for_release.py.</description>
-    <language>en</language>
-  </channel>
-</rss>

@@ -189,3 +189,7 @@ MacDown/Resources/Prism/*
 # Dependency lockfiles pin the toolchain and are committed, despite *.lock above.
 !Gemfile.lock
 !Podfile.lock
+
+# Caches xcodebuild 27 writes into the directory it runs from
+CachedSpecifications-xcodebuild
+PlugInCache-xcodebuild.xcplugincache

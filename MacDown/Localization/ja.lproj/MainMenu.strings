@@ -43,9 +43,6 @@
 /* Class = "NSMenuItem"; title = "Redo"; ObjectID = "6dh-zS-Vam"; */
 "6dh-zS-Vam.title" = "やり直す";
 
-/* Class = "NSMenuItem"; title = "Check for Updates…"; ObjectID = "8xL-1V-VPX"; */
-"8xL-1V-VPX.title" = "アップデートを確認…";
-
 /* Class = "NSMenuItem"; title = "Strikethrough"; ObjectID = "9CN-Qi-Fln"; */
 "9CN-Qi-Fln.title" = "打ち消し線";
 
