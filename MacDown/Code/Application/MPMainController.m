@@ -237,23 +237,22 @@ NS_INLINE void treat()
 }
 
 
-#pragma mark - Private
+#pragma mark - Data directory
 
-- (void)copyFiles
+- (void)seedDataDirectory:(NSString *)root fromBundle:(NSBundle *)bundle
+              fileManager:(NSFileManager *)manager
 {
-    NSFileManager *manager = [NSFileManager defaultManager];
-    NSString *root = MPDataDirectory(nil);
     if (![manager fileExistsAtPath:root])
     {
         [manager createDirectoryAtPath:root
            withIntermediateDirectories:YES attributes:nil error:NULL];
     }
 
-    NSBundle *bundle = [NSBundle mainBundle];
     for (NSString *key in @[kMPStylesDirectoryName, kMPThemesDirectoryName])
     {
         NSURL *dirSource = [bundle URLForResource:key withExtension:@""];
-        NSURL *dirTarget = [NSURL fileURLWithPath:MPDataDirectory(key)];
+        NSURL *dirTarget = [NSURL fileURLWithPath:
+                            [root stringByAppendingPathComponent:key]];
 
         // If the directory doesn't exist, just copy the whole thing.
         if (![manager fileExistsAtPath:dirTarget.path])
@@ -274,6 +273,16 @@ NS_INLINE void treat()
                 [manager copyItemAtURL:fileSource toURL:fileTarget error:NULL];
         }
     }
+}
+
+
+#pragma mark - Private
+
+- (void)copyFiles
+{
+    [self seedDataDirectory:MPDataDirectory(nil)
+                 fromBundle:[NSBundle mainBundle]
+                fileManager:[NSFileManager defaultManager]];
 }
 
 - (void)openPendingFiles
