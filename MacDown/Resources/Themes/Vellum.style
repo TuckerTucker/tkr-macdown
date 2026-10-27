@@ -1,0 +1,83 @@
+# Vellum - a paper theme evoking cool translucent drafting film.
+# Pairs with the Styles/Vellum.css preview style; both share the paper color.
+# Colors only; every element keeps the editor font chosen in Preferences.
+
+editor
+foreground: 22303A
+background: EEF1F2
+caret: 22303A
+
+editor-selection
+background: D3DEE4
+
+editor-current-line
+background: E6EBED
+
+H1
+foreground: 22303A
+font-style: bold
+
+H2
+foreground: 22303A
+font-style: bold
+
+H3
+foreground: 22303A
+font-style: bold
+
+H4
+foreground: 22303A
+font-style: bold
+
+H5
+foreground: 22303A
+font-style: bold
+
+H6
+foreground: 22303A
+font-style: bold
+
+EMPH
+font-style: italic
+
+STRONG
+font-style: bold
+
+LIST_BULLET
+foreground: 54636D
+
+LIST_ENUMERATOR
+foreground: 54636D
+
+BLOCKQUOTE
+foreground: 54636D
+
+COMMENT
+foreground: 54636D
+
+HRULE
+foreground: 54636D
+
+LINK
+foreground: 3B667F
+
+AUTO_LINK_URL
+foreground: 3B667F
+
+AUTO_LINK_EMAIL
+foreground: 3B667F
+
+REFERENCE
+foreground: 3B667F
+
+IMAGE
+foreground: 3B667F
+
+CODE
+foreground: 3B667F
+
+VERBATIM
+foreground: 3B667F
+
+HTML_ENTITY
+foreground: 3B667F

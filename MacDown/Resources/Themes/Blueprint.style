@@ -1,0 +1,83 @@
+# Blueprint - a paper theme evoking a dark cyanotype.
+# Pairs with the Styles/Blueprint.css preview style; both share the paper color.
+# Colors only; every element keeps the editor font chosen in Preferences.
+
+editor
+foreground: E8F0F7
+background: 1E3A5F
+caret: E8F0F7
+
+editor-selection
+background: 2E5480
+
+editor-current-line
+background: 244470
+
+H1
+foreground: E8F0F7
+font-style: bold
+
+H2
+foreground: E8F0F7
+font-style: bold
+
+H3
+foreground: E8F0F7
+font-style: bold
+
+H4
+foreground: E8F0F7
+font-style: bold
+
+H5
+foreground: E8F0F7
+font-style: bold
+
+H6
+foreground: E8F0F7
+font-style: bold
+
+EMPH
+font-style: italic
+
+STRONG
+font-style: bold
+
+LIST_BULLET
+foreground: B5C8DA
+
+LIST_ENUMERATOR
+foreground: B5C8DA
+
+BLOCKQUOTE
+foreground: B5C8DA
+
+COMMENT
+foreground: B5C8DA
+
+HRULE
+foreground: B5C8DA
+
+LINK
+foreground: 9FCBE9
+
+AUTO_LINK_URL
+foreground: 9FCBE9
+
+AUTO_LINK_EMAIL
+foreground: 9FCBE9
+
+REFERENCE
+foreground: 9FCBE9
+
+IMAGE
+foreground: 9FCBE9
+
+CODE
+foreground: 9FCBE9
+
+VERBATIM
+foreground: 9FCBE9
+
+HTML_ENTITY
+foreground: 9FCBE9

@@ -1,0 +1,83 @@
+# Newsprint - a paper theme evoking grey newsprint with high-contrast ink.
+# Pairs with the Styles/Newsprint.css preview style; both share the paper color.
+# Colors only; every element keeps the editor font chosen in Preferences.
+
+editor
+foreground: 1C1C1C
+background: E9E7E1
+caret: 1C1C1C
+
+editor-selection
+background: D6D3CA
+
+editor-current-line
+background: E1DED7
+
+H1
+foreground: 1C1C1C
+font-style: bold
+
+H2
+foreground: 1C1C1C
+font-style: bold
+
+H3
+foreground: 1C1C1C
+font-style: bold
+
+H4
+foreground: 1C1C1C
+font-style: bold
+
+H5
+foreground: 1C1C1C
+font-style: bold
+
+H6
+foreground: 1C1C1C
+font-style: bold
+
+EMPH
+font-style: italic
+
+STRONG
+font-style: bold
+
+LIST_BULLET
+foreground: 5A5A5A
+
+LIST_ENUMERATOR
+foreground: 5A5A5A
+
+BLOCKQUOTE
+foreground: 5A5A5A
+
+COMMENT
+foreground: 5A5A5A
+
+HRULE
+foreground: 5A5A5A
+
+LINK
+foreground: 3A3A3A
+
+AUTO_LINK_URL
+foreground: 3A3A3A
+
+AUTO_LINK_EMAIL
+foreground: 3A3A3A
+
+REFERENCE
+foreground: 3A3A3A
+
+IMAGE
+foreground: 3A3A3A
+
+CODE
+foreground: 3A3A3A
+
+VERBATIM
+foreground: 3A3A3A
+
+HTML_ENTITY
+foreground: 3A3A3A

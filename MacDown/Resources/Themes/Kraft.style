@@ -1,0 +1,83 @@
+# Kraft - a paper theme evoking brown kraft paper with rubber-stamp red.
+# Pairs with the Styles/Kraft.css preview style; both share the paper color.
+# Colors only; every element keeps the editor font chosen in Preferences.
+
+editor
+foreground: 3B2A1A
+background: D9C4A0
+caret: 3B2A1A
+
+editor-selection
+background: C9AF84
+
+editor-current-line
+background: D2BB94
+
+H1
+foreground: 3B2A1A
+font-style: bold
+
+H2
+foreground: 3B2A1A
+font-style: bold
+
+H3
+foreground: 3B2A1A
+font-style: bold
+
+H4
+foreground: 3B2A1A
+font-style: bold
+
+H5
+foreground: 3B2A1A
+font-style: bold
+
+H6
+foreground: 3B2A1A
+font-style: bold
+
+EMPH
+font-style: italic
+
+STRONG
+font-style: bold
+
+LIST_BULLET
+foreground: 56422B
+
+LIST_ENUMERATOR
+foreground: 56422B
+
+BLOCKQUOTE
+foreground: 56422B
+
+COMMENT
+foreground: 56422B
+
+HRULE
+foreground: 56422B
+
+LINK
+foreground: 7A2416
+
+AUTO_LINK_URL
+foreground: 7A2416
+
+AUTO_LINK_EMAIL
+foreground: 7A2416
+
+REFERENCE
+foreground: 7A2416
+
+IMAGE
+foreground: 7A2416
+
+CODE
+foreground: 7A2416
+
+VERBATIM
+foreground: 7A2416
+
+HTML_ENTITY
+foreground: 7A2416

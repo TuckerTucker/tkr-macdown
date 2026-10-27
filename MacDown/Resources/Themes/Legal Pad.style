@@ -1,0 +1,83 @@
+# Legal Pad - a paper theme evoking a canary legal pad with ballpoint navy and a red margin rule.
+# Pairs with the Styles/Legal Pad.css preview style; both share the paper color.
+# Colors only; every element keeps the editor font chosen in Preferences.
+
+editor
+foreground: 1F2A44
+background: FBF3C2
+caret: 1F2A44
+
+editor-selection
+background: F0E39A
+
+editor-current-line
+background: F7EDB0
+
+H1
+foreground: 1F2A44
+font-style: bold
+
+H2
+foreground: 1F2A44
+font-style: bold
+
+H3
+foreground: 1F2A44
+font-style: bold
+
+H4
+foreground: 1F2A44
+font-style: bold
+
+H5
+foreground: 1F2A44
+font-style: bold
+
+H6
+foreground: 1F2A44
+font-style: bold
+
+EMPH
+font-style: italic
+
+STRONG
+font-style: bold
+
+LIST_BULLET
+foreground: 656554
+
+LIST_ENUMERATOR
+foreground: 656554
+
+BLOCKQUOTE
+foreground: 656554
+
+COMMENT
+foreground: 656554
+
+HRULE
+foreground: 656554
+
+LINK
+foreground: A8301F
+
+AUTO_LINK_URL
+foreground: A8301F
+
+AUTO_LINK_EMAIL
+foreground: A8301F
+
+REFERENCE
+foreground: A8301F
+
+IMAGE
+foreground: A8301F
+
+CODE
+foreground: A8301F
+
+VERBATIM
+foreground: A8301F
+
+HTML_ENTITY
+foreground: A8301F

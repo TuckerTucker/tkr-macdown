@@ -1,0 +1,95 @@
+# Legal Pad+ - a paper theme evoking a canary legal pad with ballpoint navy and a red margin rule.
+# Pairs with the Styles/Legal Pad.css preview style; both share the paper color.
+# Headings are scaled and set in Noteworthy-Bold; body text keeps the editor font chosen in Preferences.
+
+editor
+foreground: 1F2A44
+background: FBF3C2
+caret: 1F2A44
+
+editor-selection
+background: F0E39A
+
+editor-current-line
+background: F7EDB0
+
+H1
+foreground: 1F2A44
+font-style: bold
+font-size: 24px
+font-family: Noteworthy-Bold
+
+H2
+foreground: 1F2A44
+font-style: bold
+font-size: 20px
+font-family: Noteworthy-Bold
+
+H3
+foreground: 1F2A44
+font-style: bold
+font-size: 17px
+font-family: Noteworthy-Bold
+
+H4
+foreground: 1F2A44
+font-style: bold
+font-size: 15px
+font-family: Noteworthy-Bold
+
+H5
+foreground: 1F2A44
+font-style: bold
+font-size: 13px
+font-family: Noteworthy-Bold
+
+H6
+foreground: 1F2A44
+font-style: bold
+font-size: 11px
+font-family: Noteworthy-Bold
+
+EMPH
+font-style: italic
+
+STRONG
+font-style: bold
+
+LIST_BULLET
+foreground: 656554
+
+LIST_ENUMERATOR
+foreground: 656554
+
+BLOCKQUOTE
+foreground: 656554
+
+COMMENT
+foreground: 656554
+
+HRULE
+foreground: 656554
+
+LINK
+foreground: A8301F
+
+AUTO_LINK_URL
+foreground: A8301F
+
+AUTO_LINK_EMAIL
+foreground: A8301F
+
+REFERENCE
+foreground: A8301F
+
+IMAGE
+foreground: A8301F
+
+CODE
+foreground: A8301F
+
+VERBATIM
+foreground: A8301F
+
+HTML_ENTITY
+foreground: A8301F
