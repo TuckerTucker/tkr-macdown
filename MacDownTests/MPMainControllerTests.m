@@ -7,6 +7,9 @@
 //  only logging it. Fixtures are real files and symlinks in a temporary
 //  folder; the editable types come from the app's own Info.plist.
 //
+//  Also tests seeding the data directory with the bundled Styles and Themes:
+//  the source is the app bundle itself, the target a temporary folder.
+//
 
 #import <XCTest/XCTest.h>
 #import "MPErrorPresenting.h"
@@ -278,6 +281,131 @@
                           MPOpenRequestErrorDomain);
     XCTAssertEqual(presenter.errors.firstObject.code,
                    MPOpenRequestErrorNotAFile);
+}
+
+
+#pragma mark - Seeding the data directory
+
+- (MPMainController *)controller
+{
+    return [[MPMainController alloc] initWithInfoDictionary:@{}];
+}
+
+- (NSString *)seedRoot
+{
+    return [self.directory stringByAppendingPathComponent:@"Data"];
+}
+
+- (void)seed
+{
+    [[self controller] seedDataDirectory:[self seedRoot]
+                              fromBundle:[NSBundle mainBundle]
+                             fileManager:[NSFileManager defaultManager]];
+}
+
+- (NSArray<NSString *> *)sortedContentsOfDirectory:(NSString *)path
+{
+    NSArray *names = [[NSFileManager defaultManager]
+        contentsOfDirectoryAtPath:path error:NULL];
+    return [names sortedArrayUsingSelector:@selector(compare:)];
+}
+
+- (NSArray<NSString *> *)bundledContentsOfDirectory:(NSString *)name
+{
+    NSURL *url = [[NSBundle mainBundle] URLForResource:name
+                                         withExtension:@""];
+    XCTAssertNotNil(url, @"the app bundle must contain %@", name);
+    return [self sortedContentsOfDirectory:url.path];
+}
+
+// Every seeded file's path, mapped to its modification date.
+- (NSDictionary<NSString *, NSDate *> *)modificationDatesUnder:(NSString *)root
+{
+    NSFileManager *manager = [NSFileManager defaultManager];
+    NSMutableDictionary *dates = [NSMutableDictionary dictionary];
+    for (NSString *name in @[@"Styles", @"Themes"])
+    {
+        NSString *dir = [root stringByAppendingPathComponent:name];
+        for (NSString *file in [self sortedContentsOfDirectory:dir])
+        {
+            NSString *path = [dir stringByAppendingPathComponent:file];
+            NSDictionary *attributes =
+                [manager attributesOfItemAtPath:path error:NULL];
+            dates[path] = attributes.fileModificationDate;
+        }
+    }
+    return [dates copy];
+}
+
+- (void)testSeedingAnAbsentRootCopiesBothFolders
+{
+    NSString *root = [self seedRoot];
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:root]);
+
+    [self seed];
+
+    for (NSString *name in @[@"Styles", @"Themes"])
+    {
+        NSString *path = [root stringByAppendingPathComponent:name];
+        NSArray *expected = [self bundledContentsOfDirectory:name];
+        XCTAssertGreaterThan(expected.count, 0u, @"%@", name);
+        XCTAssertEqualObjects([self sortedContentsOfDirectory:path], expected,
+                              @"%@", name);
+    }
+    NSFileManager *manager = [NSFileManager defaultManager];
+    XCTAssertTrue([manager fileExistsAtPath:
+        [root stringByAppendingPathComponent:@"Themes/Vellum.style"]]);
+    XCTAssertTrue([manager fileExistsAtPath:
+        [root stringByAppendingPathComponent:@"Styles/Vellum.css"]]);
+}
+
+// The discriminating case: an existing install gains the new theme while
+// the user's edited copy of a bundled one is left exactly as it was.
+- (void)testSeedingKeepsEditedFilesAndAddsMissingOnes
+{
+    NSFileManager *manager = [NSFileManager defaultManager];
+    NSString *themes =
+        [[self seedRoot] stringByAppendingPathComponent:@"Themes"];
+    XCTAssertTrue([manager createDirectoryAtPath:themes
+                     withIntermediateDirectories:YES attributes:nil
+                                           error:NULL]);
+    NSString *vellum = [themes stringByAppendingPathComponent:@"Vellum.style"];
+    NSData *edited =
+        [@"/* edited by the user */\n" dataUsingEncoding:NSUTF8StringEncoding];
+    XCTAssertTrue([edited writeToFile:vellum atomically:YES]);
+    NSString *sepia = [themes stringByAppendingPathComponent:@"Sepia.style"];
+    XCTAssertFalse([manager fileExistsAtPath:sepia]);
+
+    [self seed];
+
+    XCTAssertTrue([manager fileExistsAtPath:sepia],
+                  @"a newly bundled theme must reach an existing install");
+    XCTAssertEqualObjects([NSData dataWithContentsOfFile:vellum], edited,
+                          @"an edited theme must never be overwritten");
+    XCTAssertEqualObjects([self sortedContentsOfDirectory:themes],
+                          [self bundledContentsOfDirectory:@"Themes"]);
+}
+
+- (void)testSeedingTwiceChangesNothing
+{
+    NSString *root = [self seedRoot];
+    [self seed];
+
+    NSString *vellum =
+        [root stringByAppendingPathComponent:@"Themes/Vellum.style"];
+    NSData *edited =
+        [@"/* edited by the user */\n" dataUsingEncoding:NSUTF8StringEncoding];
+    XCTAssertTrue([edited writeToFile:vellum atomically:YES]);
+
+    NSDictionary *before = [self modificationDatesUnder:root];
+    XCTAssertGreaterThan(before.count, 0u);
+
+    [self seed];
+
+    NSDictionary *after = [self modificationDatesUnder:root];
+    XCTAssertEqualObjects(after, before,
+                          @"a second seed must neither add nor touch a file");
+    XCTAssertEqualObjects([NSData dataWithContentsOfFile:vellum], edited);
 }
 
 @end

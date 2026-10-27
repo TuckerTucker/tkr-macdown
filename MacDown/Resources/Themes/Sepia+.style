@@ -1,0 +1,95 @@
+# Sepia+ - a paper theme evoking an aged book page.
+# Pairs with the Styles/Sepia.css preview style; both share the paper color.
+# Headings are scaled and set in IowanOldStyle-Bold; body text keeps the editor font chosen in Preferences.
+
+editor
+foreground: 43352A
+background: F4ECD8
+caret: 43352A
+
+editor-selection
+background: E6D9BC
+
+editor-current-line
+background: EFE5CD
+
+H1
+foreground: 43352A
+font-style: bold
+font-size: 24px
+font-family: IowanOldStyle-Bold
+
+H2
+foreground: 43352A
+font-style: bold
+font-size: 20px
+font-family: IowanOldStyle-Bold
+
+H3
+foreground: 43352A
+font-style: bold
+font-size: 17px
+font-family: IowanOldStyle-Bold
+
+H4
+foreground: 43352A
+font-style: bold
+font-size: 15px
+font-family: IowanOldStyle-Bold
+
+H5
+foreground: 43352A
+font-style: bold
+font-size: 13px
+font-family: IowanOldStyle-Bold
+
+H6
+foreground: 43352A
+font-style: bold
+font-size: 11px
+font-family: IowanOldStyle-Bold
+
+EMPH
+font-style: italic
+
+STRONG
+font-style: bold
+
+LIST_BULLET
+foreground: 6E5D4A
+
+LIST_ENUMERATOR
+foreground: 6E5D4A
+
+BLOCKQUOTE
+foreground: 6E5D4A
+
+COMMENT
+foreground: 6E5D4A
+
+HRULE
+foreground: 6E5D4A
+
+LINK
+foreground: 7A4E2D
+
+AUTO_LINK_URL
+foreground: 7A4E2D
+
+AUTO_LINK_EMAIL
+foreground: 7A4E2D
+
+REFERENCE
+foreground: 7A4E2D
+
+IMAGE
+foreground: 7A4E2D
+
+CODE
+foreground: 7A4E2D
+
+VERBATIM
+foreground: 7A4E2D
+
+HTML_ENTITY
+foreground: 7A4E2D

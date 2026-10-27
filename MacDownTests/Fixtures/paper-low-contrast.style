@@ -1,0 +1,84 @@
+# paper-low-contrast - negative fixture for MPPaperThemeTests.
+# A copy of Themes/Linen.style whose LIST_BULLET foreground (A8A196) is
+# about 2.4:1 on the FAF7F0 editor background, below the WCAG 4.5:1 floor.
+# The audit must report it; nothing else in the file differs from Linen.
+
+editor
+foreground: 2E2A25
+background: FAF7F0
+caret: 2E2A25
+
+editor-selection
+background: ECE5D6
+
+editor-current-line
+background: F4EFE4
+
+H1
+foreground: 2E2A25
+font-style: bold
+
+H2
+foreground: 2E2A25
+font-style: bold
+
+H3
+foreground: 2E2A25
+font-style: bold
+
+H4
+foreground: 2E2A25
+font-style: bold
+
+H5
+foreground: 2E2A25
+font-style: bold
+
+H6
+foreground: 2E2A25
+font-style: bold
+
+EMPH
+font-style: italic
+
+STRONG
+font-style: bold
+
+LIST_BULLET
+foreground: A8A196
+
+LIST_ENUMERATOR
+foreground: 6E665B
+
+BLOCKQUOTE
+foreground: 6E665B
+
+COMMENT
+foreground: 6E665B
+
+HRULE
+foreground: 6E665B
+
+LINK
+foreground: 5B6B4E
+
+AUTO_LINK_URL
+foreground: 5B6B4E
+
+AUTO_LINK_EMAIL
+foreground: 5B6B4E
+
+REFERENCE
+foreground: 5B6B4E
+
+IMAGE
+foreground: 5B6B4E
+
+CODE
+foreground: 5B6B4E
+
+VERBATIM
+foreground: 5B6B4E
+
+HTML_ENTITY
+foreground: 5B6B4E

@@ -1,0 +1,95 @@
+# Rice+ - a paper theme evoking rice / washi paper with sumi ink and a cinnabar seal.
+# Pairs with the Styles/Rice.css preview style; both share the paper color.
+# Headings are scaled and set in Athelas-Bold; body text keeps the editor font chosen in Preferences.
+
+editor
+foreground: 2B2B2B
+background: F7F4EC
+caret: 2B2B2B
+
+editor-selection
+background: E8E2D3
+
+editor-current-line
+background: F0ECE1
+
+H1
+foreground: 2B2B2B
+font-style: bold
+font-size: 24px
+font-family: Athelas-Bold
+
+H2
+foreground: 2B2B2B
+font-style: bold
+font-size: 20px
+font-family: Athelas-Bold
+
+H3
+foreground: 2B2B2B
+font-style: bold
+font-size: 17px
+font-family: Athelas-Bold
+
+H4
+foreground: 2B2B2B
+font-style: bold
+font-size: 15px
+font-family: Athelas-Bold
+
+H5
+foreground: 2B2B2B
+font-style: bold
+font-size: 13px
+font-family: Athelas-Bold
+
+H6
+foreground: 2B2B2B
+font-style: bold
+font-size: 11px
+font-family: Athelas-Bold
+
+EMPH
+font-style: italic
+
+STRONG
+font-style: bold
+
+LIST_BULLET
+foreground: 69645B
+
+LIST_ENUMERATOR
+foreground: 69645B
+
+BLOCKQUOTE
+foreground: 69645B
+
+COMMENT
+foreground: 69645B
+
+HRULE
+foreground: 69645B
+
+LINK
+foreground: A23B2A
+
+AUTO_LINK_URL
+foreground: A23B2A
+
+AUTO_LINK_EMAIL
+foreground: A23B2A
+
+REFERENCE
+foreground: A23B2A
+
+IMAGE
+foreground: A23B2A
+
+CODE
+foreground: A23B2A
+
+VERBATIM
+foreground: A23B2A
+
+HTML_ENTITY
+foreground: A23B2A

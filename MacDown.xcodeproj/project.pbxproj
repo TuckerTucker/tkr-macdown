@@ -91,6 +91,10 @@
 		770BB49E962A302D0715A6A5 /* libPods-MacDown.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 42F926DD38559C7CEDB6E42F /* libPods-MacDown.a */; };
 		80E1663C0D86597B09023B77 /* MPRendererStubs.m in Sources */ = {isa = PBXBuildFile; fileRef = F7D26DA8A74237E5AC96A8B8 /* MPRendererStubs.m */; };
 		84AF0F5B5A175049A5384328 /* MPNoUpdaterTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 07DA2BD066BBC2D2C7858DFF /* MPNoUpdaterTests.m */; };
+		B7A72C6DB9F72749E620D169 /* MPPaperThemeTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 1DC9CD6C337F719E3680F629 /* MPPaperThemeTests.m */; };
+		AE4443FD64F4B5F525470440 /* paper-low-contrast.style in Resources */ = {isa = PBXBuildFile; fileRef = 2D2E293F35289788DFAA1664 /* paper-low-contrast.style */; };
+		7A9A17B66782E1FEAA1BC27E /* paper-missing-face+.style in Resources */ = {isa = PBXBuildFile; fileRef = C4C1D77759A31933EC94EFE7 /* paper-missing-face+.style */; };
+		68648DD195CA5C98473CB528 /* paper-no-generic.css in Resources */ = {isa = PBXBuildFile; fileRef = 58848930548310A9CEE5A9B6 /* paper-no-generic.css */; };
 		852D523C1E260A6400BA7162 /* MPTerminalPreferencesViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 852D523A1E260A6400BA7162 /* MPTerminalPreferencesViewController.m */; };
 		85E24E5C1E5019C00056E696 /* MPToolbarController.m in Sources */ = {isa = PBXBuildFile; fileRef = 85E24E5B1E5019C00056E696 /* MPToolbarController.m */; };
 		8CA2432B0F8AD93882B3FD9D /* MPDocumentTests.m in Sources */ = {isa = PBXBuildFile; fileRef = CDF65BF66FFF672499B6F5B7 /* MPDocumentTests.m */; };
@@ -173,6 +177,10 @@
 /* Begin PBXFileReference section */
 		05D17E338DEE0BF4B32591DD /* MPErrorPresenting.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = MPErrorPresenting.h; path = MPErrorPresenting.h; sourceTree = "<group>"; };
 		07DA2BD066BBC2D2C7858DFF /* MPNoUpdaterTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPNoUpdaterTests.m; sourceTree = "<group>"; };
+		1DC9CD6C337F719E3680F629 /* MPPaperThemeTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPPaperThemeTests.m; sourceTree = "<group>"; };
+		2D2E293F35289788DFAA1664 /* paper-low-contrast.style */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; name = "paper-low-contrast.style"; path = "Fixtures/paper-low-contrast.style"; sourceTree = "<group>"; };
+		C4C1D77759A31933EC94EFE7 /* paper-missing-face+.style */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; name = "paper-missing-face+.style"; path = "Fixtures/paper-missing-face+.style"; sourceTree = "<group>"; };
+		58848930548310A9CEE5A9B6 /* paper-no-generic.css */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.css; name = "paper-no-generic.css"; path = "Fixtures/paper-no-generic.css"; sourceTree = "<group>"; };
 		0A522E6224E5AF7DD0E924E3 /* MPToolbarControllerTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = MPToolbarControllerTests.m; sourceTree = "<group>"; };
 		0A6382AA9E5C8EE4C37D231D /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
 		0D0EC0DE9FEA22F962083921 /* Pods-MacDownTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MacDownTests.release.xcconfig"; path = "Pods/Target Support Files/Pods-MacDownTests/Pods-MacDownTests.release.xcconfig"; sourceTree = "<group>"; };
@@ -934,6 +942,10 @@
 				0EF4F4A7810E79B7083F0BFE /* MPPlugInTests.m */,
 				07DA2BD066BBC2D2C7858DFF /* MPNoUpdaterTests.m */,
 				868E71012C210D6F35BCCBED /* MPScrollSyncMapTests.m */,
+				1DC9CD6C337F719E3680F629 /* MPPaperThemeTests.m */,
+				2D2E293F35289788DFAA1664 /* paper-low-contrast.style */,
+				C4C1D77759A31933EC94EFE7 /* paper-missing-face+.style */,
+				58848930548310A9CEE5A9B6 /* paper-no-generic.css */,
 			);
 			path = MacDownTests;
 			sourceTree = "<group>";
@@ -1161,6 +1173,9 @@
 				1FFEB3201972B04D00B2254F /* test.txt in Resources */,
 				1FFEB31E1972A28400B2254F /* test.js in Resources */,
 				58C8E67F63B138B307709CDB /* text-count-fixture.html in Resources */,
+				AE4443FD64F4B5F525470440 /* paper-low-contrast.style in Resources */,
+				7A9A17B66782E1FEAA1BC27E /* paper-missing-face+.style in Resources */,
+				68648DD195CA5C98473CB528 /* paper-no-generic.css in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1360,6 +1375,7 @@
 				F9E8DE27C037F68F20F71D0A /* MPPlugInTests.m in Sources */,
 				84AF0F5B5A175049A5384328 /* MPNoUpdaterTests.m in Sources */,
 				AFDB11990F1ED7B370F3ED06 /* MPScrollSyncMapTests.m in Sources */,
+				B7A72C6DB9F72749E620D169 /* MPPaperThemeTests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,0 +1,89 @@
+# Linen+ - a paper theme evoking a neutral warm-white everyday sheet.
+# Pairs with the Styles/Linen.css preview style; both share the paper color.
+# Headings are scaled; body text keeps the editor font chosen in Preferences.
+
+editor
+foreground: 2E2A25
+background: FAF7F0
+caret: 2E2A25
+
+editor-selection
+background: ECE5D6
+
+editor-current-line
+background: F4EFE4
+
+H1
+foreground: 2E2A25
+font-style: bold
+font-size: 24px
+
+H2
+foreground: 2E2A25
+font-style: bold
+font-size: 20px
+
+H3
+foreground: 2E2A25
+font-style: bold
+font-size: 17px
+
+H4
+foreground: 2E2A25
+font-style: bold
+font-size: 15px
+
+H5
+foreground: 2E2A25
+font-style: bold
+font-size: 13px
+
+H6
+foreground: 2E2A25
+font-style: bold
+font-size: 11px
+
+EMPH
+font-style: italic
+
+STRONG
+font-style: bold
+
+LIST_BULLET
+foreground: 6E665B
+
+LIST_ENUMERATOR
+foreground: 6E665B
+
+BLOCKQUOTE
+foreground: 6E665B
+
+COMMENT
+foreground: 6E665B
+
+HRULE
+foreground: 6E665B
+
+LINK
+foreground: 5B6B4E
+
+AUTO_LINK_URL
+foreground: 5B6B4E
+
+AUTO_LINK_EMAIL
+foreground: 5B6B4E
+
+REFERENCE
+foreground: 5B6B4E
+
+IMAGE
+foreground: 5B6B4E
+
+CODE
+foreground: 5B6B4E
+
+VERBATIM
+foreground: 5B6B4E
+
+HTML_ENTITY
+foreground: 5B6B4E
